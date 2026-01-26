@@ -1,0 +1,77 @@
+/* 全局重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html, body, #app {
+  height: 100%;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+
+/* 全局变量 */
+:root {
+  --color-up: #e53935;
+  --color-down: #2f9b56;
+  --color-neutral: #666;
+  --color-bg: #f8f8f8;
+  --color-border: #e6e6e6;
+  --color-card-bg: #fff;
+  --font-size-pc: 14px;
+  --font-size-tablet: 13px;
+  --font-size-mobile: 12px;
+  --spacing-pc: 20px;
+  --spacing-mobile: 10px;
+  --border-radius-pc: 4px;
+  --border-radius-mobile: 6px;
+}
+
+/* 通用样式 */
+.card-container {
+  background: var(--color-card-bg);
+  border-radius: var(--border-radius-pc);
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+  padding: 15px;
+  margin-bottom: 10px;
+}
+.btn-primary {
+  background-color: var(--color-up);
+  color: #fff;
+  border: none;
+  border-radius: var(--border-radius-pc);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.btn-secondary {
+  background-color: var(--color-down);
+  color: #fff;
+  border: none;
+  border-radius: var(--border-radius-pc);
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+/* 行情涨跌样式 */
+.text-up {
+  color: var(--color-up) !important;
+  font-weight: bold;
+}
+.text-down {
+  color: var(--color-down) !important;
+  font-weight: bold;
+}
+.text-neutral {
+  color: var(--color-neutral) !important;
+}
+/* 隐藏类 */
+.hide-on-mobile {
+  display: block;
+}
+.hide-on-pc {
+  display: none;
+}
+/* 核心数据字体 */
+.data-text {
+  font-weight: bold;
+}
