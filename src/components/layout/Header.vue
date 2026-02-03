@@ -21,7 +21,7 @@
           <span slot="title">行情首页</span>
         </el-menu-item>
         <el-menu-item index="2">
-          <i class="el-icon-line-chart"></i>
+          <i class="el-icon-s-data"></i>
           <span slot="title">个股详情</span>
         </el-menu-item>
         <el-menu-item index="3">
@@ -121,6 +121,10 @@ export default {
           path = '/quote';
           break;
         case '2':
+          if (!this.currentStockCode) {
+            this.$message.warning('请先选择股票');
+            return;
+          }
           path = `/detail/${this.currentStockCode}`;
           break;
         case '3':
@@ -147,7 +151,17 @@ export default {
         default:
           path = '/quote';
       }
-      this.$router.push(path);
+
+      // 未登录时跳转登录页时避免重复导航
+      if ((path === '/trade' || path === '/mine') && !this.isLogin) {
+        if (this.$route.path !== '/login') this.$router.push('/login');
+        return;
+      }
+
+      // 避免重复导航导致的 NavigationDuplicated 错误
+      if (this.$route.path !== path) {
+        this.$router.push(path);
+      }
       this.activeMenu = index;
     },
     // 跳转页面（保留原逻辑，新增登录校验）
@@ -155,10 +169,13 @@ export default {
       // 未登录时，访问需权限页面拦截
       if ((path === '/trade' || path === '/mine') && !this.isLogin) {
         this.$message.warning('请先登录后再操作');
-        this.$router.push('/login');
+        if (this.$route.path !== '/login') this.$router.push('/login');
         return;
       }
-      this.$router.push(path);
+      // 避免重复导航
+      if (this.$route.path !== path) {
+        this.$router.push(path);
+      }
       // 更新当前菜单激活状态
       if (path === '/quote') this.activeMenu = '1';
       if (path.includes('/detail')) this.activeMenu = '2';
@@ -166,6 +183,7 @@ export default {
       if (path === '/trade') this.activeMenu = '4';
       if (path === '/mine') this.activeMenu = '5';
     },
+
     // 打开移动端抽屉
     openDrawer() {
       this.drawerVisible = true;

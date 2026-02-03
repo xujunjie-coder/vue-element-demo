@@ -1,10 +1,10 @@
 <template>
-  <el-main style="padding: var(--spacing-base); background: var(--color-bg);">
-    <!-- 行情筛选栏 -->
+  <el-main style="padding: var(--spacing-xs, 8px); background: var(--color-bg);">
+    <!-- 行情筛选栏 - 缩小内边距、间距 -->
     <div class="card-container filter-bar">
-      <el-row :gutter="20">
+      <el-row :gutter="10">
         <el-col :span="6" :xs="24">
-          <el-select v-model="marketType" placeholder="请选择市场类型">
+          <el-select v-model="marketType" placeholder="市场类型" size="mini">
             <el-option
               v-for="(val, key) in MarketType"
               :key="key"
@@ -14,7 +14,7 @@
           </el-select>
         </el-col>
         <el-col :span="6" :xs="24">
-          <el-select v-model="sortType" placeholder="请选择排序方式">
+          <el-select v-model="sortType" placeholder="排序方式" size="mini">
             <el-option label="涨跌幅↑" value="change_rate_desc"></el-option>
             <el-option label="涨跌幅↓" value="change_rate_asc"></el-option>
             <el-option label="价格↑" value="price_desc"></el-option>
@@ -25,58 +25,61 @@
         <el-col :span="8" :xs="24">
           <el-input
             v-model="searchKeyword"
-            placeholder="请输入股票代码/名称"
+            placeholder="代码/名称"
             prefix-icon="el-icon-search"
             @keyup.enter="searchStock"
+            size="mini"
           ></el-input>
         </el-col>
         <el-col :span="4" :xs="24">
-          <el-button type="primary" @click="refreshQuote">
+          <el-button type="primary" @click="refreshQuote" size="mini">
             <i class="el-icon-refresh"></i> 刷新
           </el-button>
         </el-col>
       </el-row>
     </div>
 
-    <!-- 行情数据表格 -->
+    <!-- 行情数据表格 - 缩小列宽、字体 -->
     <div class="card-container quote-table">
       <el-table
         :data="quoteList"
         border
-        style="width: 100%;"
-        @row-click="goStockDetail"
+        size="mini"
+        style="width: 100%; font-size: 12px;"
+        
         v-loading="loading"
-        element-loading-text="行情数据加载中..."
+        element-loading-text="加载中..."
       >
-        <el-table-column type="index" label="序号" width="60" />
-        <el-table-column prop="code" label="代码" width="100" />
-        <el-table-column prop="name" label="名称" width="120" />
-        <el-table-column prop="price" label="最新价" width="100">
+        <el-table-column type="index" label="序号" width="50" />
+        <el-table-column prop="code" label="代码" width="70" />
+        <el-table-column prop="name" label="名称" width="80" />
+        <el-table-column prop="price" label="最新价" width="80">
           <template slot-scope="scope">
-            <span class="data-text">{{ scope.row.price }}</span>
+            <span class="data-text only-price-num">{{ scope.row.price }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="change" label="涨跌额" width="100">
+        <el-table-column prop="change" label="涨跌额" width="83">
           <template slot-scope="scope">
             <span :class="getChangeClass(scope.row.change)">{{ scope.row.change }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="change_rate" label="涨跌幅(%)" width="120">
+        <el-table-column prop="change_rate" label="涨跌幅(%)" width="80">
           <template slot-scope="scope">
             <span :class="getChangeClass(scope.row.change)">
               {{ scope.row.change_rate }}%
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="volume" label="成交量(手)" width="120" />
-        <el-table-column prop="high" label="最高价" width="100" />
-        <el-table-column prop="low" label="最低价" width="100" />
-        <el-table-column label="操作" width="180">
+        <el-table-column prop="volume" label="成交量(手)" width="80" />
+        <el-table-column prop="high" label="最高价" width="70" />
+        <el-table-column prop="low" label="最低价" width="70" />
+        <el-table-column label="操作" width="140">
           <template slot-scope="scope">
             <el-button
               type="text"
               @click.stop="goStockDetail(scope.row)"
               class="operate-btn"
+              size="mini"
             >
               详情
             </el-button>
@@ -84,13 +87,15 @@
               type="text"
               @click.stop="addToOptional(scope.row)"
               class="operate-btn text-up"
+              size="mini"
             >
-              加自选
+              自选
             </el-button>
             <el-button
               type="text"
               @click.stop="tradeStock(scope.row)"
               class="operate-btn text-down"
+              size="mini"
             >
               交易
             </el-button>
@@ -98,24 +103,25 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页控件 -->
+      <!-- 分页控件 - 缩小尺寸 -->
       <el-pagination
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
         :current-page="page"
-        :page-sizes="[10, 20, 50, 100]"
+        :page-sizes="[10, 20, 50]"
         :page-size="size"
         layout="total, sizes, prev, pager, next, jumper"
         :total="total"
-        style="margin-top: 20px; text-align: right;"
+        size="mini"
+        style="margin-top: 10px; text-align: right; font-size: 12px;"
       >
       </el-pagination>
     </div>
 
-    <!-- 行情概览图表 -->
+    <!-- 行情概览图表 - 缩小高度 -->
     <div class="card-container quote-chart hide-on-mobile">
       <h3 class="chart-title">市场行情概览</h3>
-      <div ref="quoteChart" style="width: 100%; height: 400px;"></div>
+      <div ref="quoteChart" style="width: 100%; height: 280px;"></div>
     </div>
   </el-main>
 </template>
@@ -126,7 +132,7 @@ import * as echarts from 'echarts';
 import request from '../../utils/request';
 import { MarketType } from '../../utils/constants';
 import { getChangeClass, formatPrice, formatChangeRate, formatVolume } from '../../utils/format';
-import { throttle } from '../../utils/tool';
+import { throttle, getCache, setCache } from '../../utils/tool';
 
 export default {
   name: 'StockQuote',
@@ -151,12 +157,30 @@ export default {
     };
   },
   mounted() {
-    // 加载行情数据
-    this.fetchQuoteList();
+    // 优化首屏：先从缓存读取数据，快速渲染，再并行刷新最新数据
+    const cached = getCache('quoteList_cache');
+    if (cached && cached.list) {
+      this.quoteList = cached.list.map(item => ({
+        ...item,
+        price: formatPrice(item.price),
+        change: formatPrice(item.change),
+        change_rate: formatChangeRate(item.change_rate),
+        volume: formatVolume(item.volume),
+        high: formatPrice(item.high),
+        low: formatPrice(item.low)
+      }));
+      this.total = cached.total || 0;
+      // 并行发起网络请求更新缓存但不阻塞首屏渲染
+      this.fetchQuoteList({ useCacheFallback: true });
+    } else {
+      // 无缓存时正常加载并显示 loading
+      this.fetchQuoteList({ useCacheFallback: false });
+    }
+
     // 初始化图表
     this.initQuoteChart();
     // 设置自动刷新（修复：节流函数绑定this，避免this指向错误）
-    this.refreshTimer = setInterval(throttle(this.fetchQuoteList.bind(this)), 3000);
+    this.refreshTimer = setInterval(throttle(this.fetchQuoteList.bind(this, { useCacheFallback: true })), 3000);
   },
   beforeDestroy() {
     // 清除定时器
@@ -168,19 +192,28 @@ export default {
     ...mapActions(['addOptionalStock']),
     getChangeClass,
     // 获取行情列表（无需修改，request.js已处理解析）
-    async fetchQuoteList() {
-      this.loading = true;
+    async fetchQuoteList(options = { useCacheFallback: true }) {
+      // 防止重复并发请求
+      if (this._fetching) return;
+      this._fetching = true;
+
+      const params = {
+        page: this.page,
+        size: this.size,
+        market: this.marketType,
+        sort: this.sortType,
+        keyword: this.searchKeyword
+      };
+
+      // 如果使用缓存回退，则不要展示全局loading以免阻塞首屏
+      if (!options.useCacheFallback) {
+        this.loading = true;
+      }
+
       try {
-        const params = {
-          page: this.page,
-          size: this.size,
-          market: this.marketType,
-          sort: this.sortType,
-          keyword: this.searchKeyword
-        };
         const res = await request.getQuoteList(params);
         // 此时res已被request.js解析为{ list: [], total: 100 }
-        this.quoteList = res.list.map(item => ({
+        const formatted = res.list.map(item => ({
           ...item,
           price: formatPrice(item.price),
           change: formatPrice(item.change),
@@ -189,16 +222,26 @@ export default {
           high: formatPrice(item.high),
           low: formatPrice(item.low)
         }));
+
+        this.quoteList = formatted;
         this.total = res.total;
+        // 缓存短期数据，10秒过期，供首屏快速渲染
+        setCache('quoteList_cache', { list: res.list, total: res.total }, 10);
         // 更新图表数据
         this.updateQuoteChart();
       } catch (err) {
-        this.$message.error('行情数据加载失败，请稍后重试');
+        // 只有在没有缓存的情况下才提示错误
+        if (!options.useCacheFallback) {
+          this.$message.error('行情数据加载失败，请稍后重试');
+        } else {
+          console.warn('fetchQuoteList background update failed', err);
+        }
       } finally {
-        this.loading = false;
+        if (!options.useCacheFallback) this.loading = false;
+        this._fetching = false;
       }
     },
-    // 初始化行情图表（保持不变）
+    // 初始化行情图表（保持不变，仅缩小渲染高度）
     initQuoteChart() {
       if (!this.$refs.quoteChart) return;
       this.chartInstance = echarts.init(this.$refs.quoteChart);
@@ -206,11 +249,12 @@ export default {
       const option = {
         tooltip: {
           trigger: 'axis',
-          textStyle: { fontSize: 12 }
+          textStyle: { fontSize: 11 } // 缩小提示文字
         },
         legend: {
           data: ['上证指数', '深证成指', '创业板指'],
-          top: 0
+          top: 0,
+          textStyle: { fontSize: 11 } // 缩小图例文字
         },
         grid: {
           left: '3%',
@@ -221,12 +265,14 @@ export default {
         xAxis: {
           type: 'category',
           boundaryGap: false,
-          data: []
+          data: [],
+          axisLabel: { fontSize: 11 } // 缩小X轴文字
         },
         yAxis: {
           type: 'value',
           axisLabel: {
-            formatter: '{value}'
+            formatter: '{value}',
+            fontSize: 11 // 缩小Y轴文字
           }
         },
         series: [
@@ -253,7 +299,7 @@ export default {
         this.chartInstance?.resize();
       });
     },
-    // 更新行情图表（保持不变）
+    // 更新行情图表（保持逻辑不变）
     updateQuoteChart() {
       if (!this.chartInstance) return;
       
@@ -326,22 +372,40 @@ export default {
 
 <style scoped>
 .filter-bar {
-  margin-bottom: 20px;
-  padding: 15px;
+  margin-bottom: 10px; /* 缩小底部间距 */
+  padding: 8px 10px; /* 缩小内边距 */
 }
 .quote-table {
-  margin-bottom: 20px;
+  margin-bottom: 10px; /* 缩小底部间距 */
 }
 .operate-btn {
-  padding: 0 5px;
+  padding: 0 3px; /* 缩小按钮内边距 */
+  font-size: 11px; /* 缩小操作按钮文字 */
 }
 .quote-chart {
-  margin-top: 20px;
+  margin-top: 10px; /* 缩小顶部间距 */
 }
 .chart-title {
-  font-size: 16px;
+  font-size: 14px; /* 缩小图表标题 */
   font-weight: bold;
   color: #333;
-  margin-bottom: 15px;
+  margin-bottom: 10px; /* 缩小标题底部间距 */
+}
+/* 全局缩小文本 */
+::v-deep .el-table {
+  --el-table-text-color: #333;
+  color: var(--el-table-text-color); /* 让变量生效 */
+  font-size: 12px;
+}
+::v-deep .el-pagination {
+  font-size: 12px;
+  /* 统一分页文字颜色 */
+  color: #333;
+}
+
+/* 仅缩小最新价列的数值字体 */
+::v-deep .only-price-num {
+  font-size: 12px !important; /* 可按需调10/11/12px，建议12px既小又清晰 */
+  line-height: 1; /* 行高统一，避免数字换行/错位 */
 }
 </style>

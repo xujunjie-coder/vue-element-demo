@@ -6,14 +6,14 @@ import { getCache, setCache } from './tool';
 // 业务接口实例
 const service = axios.create({
   baseURL: process.env.VUE_APP_API_BASE_URL,
-  timeout: process.env.VUE_APP_QUOTE_REFRESH_TIME || 5000, // 修复：默认超时5秒
+  timeout: Number(process.env.VUE_APP_QUOTE_REFRESH_TIME) || 2000, // 更短超时，避免长时间阻塞
   headers: { 'Content-Type': 'application/json' }
 });
 
-// AI接口实例
+// AI接口实例（AI接口容错稍大，但也不宜过长）
 const aiService = axios.create({
   baseURL: process.env.VUE_APP_AI_API_BASE_URL,
-  timeout: 5000,
+  timeout: Number(process.env.VUE_APP_QUOTE_REFRESH_TIME) ? Number(process.env.VUE_APP_QUOTE_REFRESH_TIME) : 3000,
   headers: { 'Content-Type': 'application/json' }
 });
 
@@ -42,16 +42,38 @@ export const parseResponseMsg = (responseData) => {
   return JSON.parse(responseData.data);
 };
 
-// 请求拦截器
+// 请求拦截器（仅在需要时展示阻塞 Loading，使用计数避免并发关闭问题）
 let loadingInstance;
+let loadingCount = 0;
+const showLoadingIfNeeded = (config) => {
+  const wantLoading = config.headers && (config.headers['X-Show-Loading'] || config.headers['x-show-loading']);
+  const defaultLoading = (config.url.includes('/ai/') || config.url.includes('/trade/')) && config.method !== 'get';
+  if (wantLoading || defaultLoading) {
+    loadingCount += 1;
+    if (!loadingInstance) {
+      loadingInstance = Loading.service({
+        text: config.url.includes('/ai/') ? 'AI分析中...' : '处理中...',
+        lock: true
+      });
+    }
+  }
+};
+const hideLoadingIfNeeded = () => {
+  if (loadingCount > 0) loadingCount -= 1;
+  if (loadingCount === 0 && loadingInstance) {
+    loadingInstance.close();
+    loadingInstance = null;
+  }
+};
+
 const addRequestInterceptor = (instance) => {
   instance.interceptors.request.use(
     (config) => {
-      if (config.url.includes('/ai/') || config.url.includes('/trade/')) {
-        loadingInstance = Loading.service({
-          text: config.url.includes('/ai/') ? 'AI分析中...' : '处理中...',
-          lock: true
-        });
+      // 控制 Loading 展示
+      try {
+        showLoadingIfNeeded(config);
+      } catch (e) {
+        console.warn('showLoadingIfNeeded failed', e);
       }
       // 添加Token
       const token = localStorage.getItem('stock_token');
@@ -61,7 +83,7 @@ const addRequestInterceptor = (instance) => {
       return config;
     },
     (error) => {
-      if (loadingInstance) loadingInstance.close();
+      hideLoadingIfNeeded();
       Message.error('请求发送失败，请检查网络');
       return Promise.reject(error);
     }
@@ -72,7 +94,7 @@ const addRequestInterceptor = (instance) => {
 const addResponseInterceptor = (instance) => {
   instance.interceptors.response.use(
     (response) => {
-      if (loadingInstance) loadingInstance.close();
+      hideLoadingIfNeeded();
       const res = response.data;
       // 按文档错误码处理
       if (res.code !== 200) {
@@ -100,10 +122,16 @@ const addResponseInterceptor = (instance) => {
         return Promise.reject(res);
       }
       // 修复：解析Mock返回的消息格式（关键步骤）
-      return parseResponseMsg(res.data);
+      try {
+        return parseResponseMsg(res.data);
+      } catch (e) {
+        console.warn('接口数据格式不符合规范，直接返回原始数据', e);
+        return res.data; // 兼容非buildRequestMsg格式的接口
+      }
     },
     (error) => {
-      if (loadingInstance) loadingInstance.close();
+      hideLoadingIfNeeded();
+      console.error('HTTP response error:', error);
       if (error.code === 'ECONNABORTED') {
         Message.error('请求超时');
       } else {
@@ -132,7 +160,11 @@ export default {
   // 交易模拟接口
   submitTradeOrder: (data) => service.post('/trade/order', buildRequestMsg(MsgType.MSG_TRADE_ORDER, data)),
   getHoldList: () => service.get('/trade/hold'),
+  getOrderList: () => service.get('/trade/order/list'), // 新增：获取委托单列表
+  searchStock: (keyword) => service.get('/stock/search', { params: { keyword } }),// 新增：股票代码联想搜索
   // 用户中心接口
   getUserInfo: () => service.get('/user/info'),
-  login: (data) => service.post('/user/login', data)
+  login: (data) => service.post('/user/login', data),
+  // 注册接口
+  register: (data) => service.post('/user/register', data)
 };

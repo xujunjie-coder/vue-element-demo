@@ -11,11 +11,14 @@
               label-width="100px"
             >
               <el-form-item label="股票代码" prop="code">
-                <el-input
+                <el-autocomplete
                   v-model="buyForm.code"
-                  placeholder="请输入股票代码"
+                  :fetch-suggestions="queryStock"
+                  @select="handleStockSelect"
                   @blur="getStockName('buy')"
-                ></el-input>
+                  placeholder="请输入股票代码或名称"
+                  clearable
+                ></el-autocomplete>
               </el-form-item>
               <el-form-item label="股票名称" prop="name">
                 <el-input
@@ -279,12 +282,14 @@
 import { mapState } from 'vuex';
 import request from '../../utils/request';
 import { getChangeClass, formatPrice } from '../../utils/format';
+import { getCache, setCache } from '../../utils/tool';
 
 export default {
   name: 'TradePanel',
   data() {
     return {
       activeTab: 'buy',
+      loading: false,
       // 买入表单
       buyForm: {
         code: '',
@@ -343,52 +348,116 @@ export default {
     }
   },
   mounted() {
-    this.fetchHoldList();
-    this.fetchOrderList();
-    this.fetchUserInfo();
+    // 首屏快速渲染：尝试使用缓存优先展示，然后并行请求最新数据
+    const cachedHold = getCache('holdList_cache');
+    const cachedOrder = getCache('orderList_cache');
+    if (cachedHold) {
+      this.holdList = cachedHold.map(item => ({
+        ...item,
+        cost: formatPrice(Number(item.cost) || 0),
+        price: formatPrice(Number(item.price) || 0),
+        profit: formatPrice(Number(item.profit) || 0),
+        profit_rate: formatPrice(Number(item.profit_rate) || 0),
+        hold: Number(item.hold) || 0
+      }));
+    }
+    if (cachedOrder) {
+      this.orderList = cachedOrder.map(item => ({
+        ...item,
+        price: formatPrice(item.price),
+        amount: item.amount,
+        create_time: item.create_time
+      }));
+    }
+
+    // 并行请求，不阻塞首屏
+    Promise.allSettled([this.fetchHoldList({ useCacheFallback: !!cachedHold }), this.fetchOrderList({ useCacheFallback: !!cachedOrder }), this.fetchUserInfo()]).catch((e) => {
+      console.warn('init data parallel load error', e);
+    });
   },
   methods: {
     getChangeClass,
     // 获取持仓列表
-    async fetchHoldList() {
+    async fetchHoldList(options = { useCacheFallback: true }) {
       try {
         const res = await request.getHoldList();
         this.holdList = res.list.map(item => ({
           ...item,
-          cost: formatPrice(item.cost),
-          price: formatPrice(item.price),
-          profit: formatPrice(item.profit),
-          profit_rate: formatPrice(item.profit_rate)
+          cost: formatPrice(Number(item.cost) || 0), // 避免非数字导致格式化失败
+          price: formatPrice(Number(item.price) || 0),
+          profit: formatPrice(Number(item.profit) || 0),
+          profit_rate: formatPrice(Number(item.profit_rate) || 0),
+          hold: Number(item.hold) || 0 // 确保持仓数量为数字
         }));
+        // 缓存短期持仓数据，供首屏快速渲染
+        setCache('holdList_cache', res.list, 10);
       } catch (err) {
-        this.$message.error('持仓数据加载失败');
+        console.error('fetchHoldList error:', err);
+        if (!options.useCacheFallback) {
+          this.$message.error('持仓数据加载失败');
+        }
       }
     },
-    // 获取委托单列表
-    fetchOrderList() {
-      // 模拟委托单数据
-      this.orderList = [
-        {
-          order_no: '20260125001',
-          code: '600519',
-          name: '贵州茅台',
-          direction: 'buy',
-          price: '1780.00',
-          amount: '100',
-          status: 'success',
-          create_time: '2026-01-25 10:30:25'
-        },
-        {
-          order_no: '20260125002',
-          code: '002594',
-          name: '比亚迪',
-          direction: 'sell',
-          price: '285.00',
-          amount: '200',
-          status: 'pending',
-          create_time: '2026-01-25 14:15:40'
+    // 股票联想搜索
+    async queryStock(queryString, callback) {
+      this.loading = true;
+      try {
+        const res = await request.searchStock(queryString);
+        callback(res.map(item => ({
+          value: item.code,
+          label: `${item.code} ${item.name}` // 显示格式：代码 名称
+        })));
+      } catch (err) {
+        callback([]);
+      } finally {
+        this.loading = false;
+      }
+    },
+    // 选择股票后自动填充名称和价格
+    async handleStockSelect(item) {
+      this.buyForm.code = item.value; // 股票代码
+      try {
+        const res = await request.getStockDetail(item.value);
+        this.buyForm.name = res.name;
+        this.buyForm.price = formatPrice(res.price);
+        this.calcTotal('buy');
+      } catch (err) {
+        console.error('handleStockSelect error:', err);
+        this.$message.warning('未查询到该股票详情');
+      }
+    },
+    // 获取委托单列表（对接Mock接口，替换硬编码）
+    async fetchOrderList(options = { useCacheFallback: true }) {
+      try {
+        const res = await request.getOrderList();
+        this.orderList = res.map(item => ({
+          ...item,
+          price: formatPrice(item.price),
+          amount: item.amount,
+          create_time: item.create_time
+        }));
+        setCache('orderList_cache', res, 10);
+      } catch (err) {
+        console.error('fetchOrderList error:', err);
+        if (!options.useCacheFallback) {
+          this.$message.error('委托单数据加载失败');
+          // 兜底：保留原硬编码数据
+          this.orderList = [
+            {
+              order_no: '20260125001',
+              code: '600519',
+              name: '贵州茅台',
+              direction: 'buy',
+              price: '1780.00',
+              amount: '100',
+              status: 'success',
+              create_time: '2026-01-25 10:30:25'
+            }
+          ];
+        } else {
+          console.warn('fetchOrderList background update failed', err);
         }
-      ];
+      }
     },
     // 获取用户信息（资金）
     async fetchUserInfo() {
@@ -396,6 +465,7 @@ export default {
         const res = await request.getUserInfo();
         this.userBalance = formatPrice(res.balance);
       } catch (err) {
+        console.error('fetchUserInfo error:', err);
         this.$message.error('用户信息加载失败');
       }
     },
@@ -480,7 +550,7 @@ export default {
 
             const res = await request.submitTradeOrder(params);
             this.$message.success(`${type === 'buy' ? '买入' : '卖出'}委托提交成功，委托单号：${res.order_no}`);
-
+            
             // 重置表单
             type === 'buy' ? this.$refs.buyFormRef.resetFields() : this.$refs.sellFormRef.resetFields();
             this.buyFee = '0.00';
@@ -488,11 +558,10 @@ export default {
             this.sellFee = '0.00';
             this.sellTotal = '0.00';
 
-            // 刷新持仓和委托单
-            this.fetchHoldList();
-            this.fetchOrderList();
-            this.fetchUserInfo();
+            // 并行刷新持仓、委托单和用户信息
+            Promise.allSettled([this.fetchHoldList(), this.fetchOrderList(), this.fetchUserInfo()]).catch(e => console.warn('refresh after submit failed', e));
           } catch (err) {
+            console.error('submitTrade error:', err);
             this.$message.error('委托提交失败，请稍后重试');
           }
         }
@@ -594,5 +663,8 @@ export default {
 }
 .tag-canceled {
   background-color: #999;
+}
+.text-up {
+  color: var(--color-up);
 }
 </style>

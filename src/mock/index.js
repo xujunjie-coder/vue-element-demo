@@ -101,8 +101,8 @@ Mock.mock('/api/stock/kline', 'get', (options) => {
   };
 });
 
-// MockAI智能选股（保持不变，POST请求解析正确）
-Mock.mock('/ai-api/ai/select', 'post', (options) => {
+// MockAI智能选股（修改：用正则匹配 /ai-api/ai/select 路径，适配VUE_APP_AI_API_BASE_URL）
+Mock.mock(/\/ai-api\/ai\/select/, 'post', (options) => {
   const res = Mock.mock({
     'list|5-10': [{
       'code|6': /[0-9]/,
@@ -150,6 +150,134 @@ Mock.mock('/api/user/info', 'get', () => {
       collect: Mock.mock({ 'array|3-6': ['@string("number",6)'] }).array
     })
   };
+});
+
+// Mock交易下单接口（新增）
+Mock.mock('/api/trade/order', 'post', (options) => {
+  // 解析POST请求的参数（兼容 buildRequestMsg 包装）
+  let reqDataRaw;
+  try {
+    reqDataRaw = JSON.parse(options.body);
+  } catch (e) {
+    reqDataRaw = options.body || {};
+  }
+  // 如果请求使用 buildRequestMsg 包装，解析内部 data 字段
+  let params = reqDataRaw;
+  if (reqDataRaw && typeof reqDataRaw.data === 'string') {
+    try {
+      params = JSON.parse(reqDataRaw.data);
+    } catch (e) {
+      params = {};
+    }
+  }
+  const direction = params.direction || params.type;
+  // 模拟下单成功
+  return {
+    code: 200,
+    data: buildRequestMsg(MsgType.MSG_OK, {
+      order_no: Mock.Random.string('number', 10),
+      code: params.code,
+      name: Mock.Random.cword(2, 4),
+      price: params.price,
+      amount: params.amount,
+      direction,
+      status: 'success',
+      create_time: new Date().toLocaleString(), // 新增委托时间
+      msg: '下单成功'
+    })
+  };
+});
+// 新增：Mock委托单列表接口（替换组件硬编码数据）
+Mock.mock('/api/trade/order/list', 'get', () => {
+  const orderList = Mock.mock({
+    'list|2-5': [{
+      'order_no|10': /[0-9]/,
+      'code|6': /[0-9]/,
+      'name': () => Mock.Random.cword(2, 4),
+      'direction': () => Mock.Random.pick(['buy', 'sell']),
+      'price|100-2000.2': 1,
+      'amount|1-10': 100,
+      'status': () => Mock.Random.pick(['success', 'pending', 'canceled']),
+      'create_time': () => Mock.Random.datetime('yyyy-MM-dd HH:mm:ss')
+    }]
+  }).list;
+  return {
+    code: 200,
+    data: buildRequestMsg(MsgType.MSG_OK, orderList)
+  };
+});
+
+// 新增：股票代码联想接口（买入表单搜索用）
+Mock.mock(/\/api\/stock\/search/, 'get', (options) => {
+  const url = new URL(options.url, window.location.origin);
+  const keyword = url.searchParams.get('keyword') || '';
+  // 模拟股票库（含真实代码和名称）
+  const stockLib = [
+    { code: '600519', name: '贵州茅台' },
+    { code: '000858', name: '五粮液' },
+    { code: '601318', name: '中国平安' },
+    { code: '002594', name: '比亚迪' },
+    { code: '600036', name: '招商银行' },
+    { code: '000333', name: '美的集团' }
+  ];
+  // 模糊匹配（代码或名称包含关键词）
+  const result = keyword 
+    ? stockLib.filter(item => item.code.includes(keyword) || item.name.includes(keyword))
+    : [];
+  return {
+    code: 200,
+    data: buildRequestMsg(MsgType.MSG_OK, result)
+  };
+});
+// Mock登录接口（新增）
+Mock.mock('/api/user/login', 'post', (options) => {
+  const reqData = JSON.parse(options.body);
+  // 模拟账号密码正确（admin/123456）
+  if (reqData.username === 'admin' && reqData.password === '123456') {
+    return {
+      code: 200,
+      data: {
+        token: Mock.Random.string('letter', 32), // 返回token
+        userInfo: {
+          username: 'admin',
+          id: Mock.Random.integer(10000, 99999)
+        }
+      }
+    };
+  } else {
+    return {
+      code: 400,
+      msg: '账号或密码错误'
+    };
+  }
+});
+
+// Mock注册接口（新增）
+Mock.mock('/api/user/register', 'post', (options) => {
+  try {
+    const req = JSON.parse(options.body);
+    const username = (req.username || '').trim();
+    const password = req.password || '';
+    if (!username || !password || password.length < 6) {
+      return { code: 400, msg: '参数错误：用户名/密码不合法' };
+    }
+    // 简单模拟：如果用户名为 'exists' 则返回已存在
+    if (username === 'exists') {
+      return { code: 400, msg: '用户名已存在' };
+    }
+    return {
+      code: 200,
+      data: {
+        token: Mock.Random.string('letter', 32),
+        userInfo: {
+          username,
+          id: Mock.Random.integer(10000, 99999)
+        }
+      }
+    };
+  } catch (e) {
+    return { code: 400, msg: '请求参数解析失败' };
+  }
 });
 
 export default Mock;

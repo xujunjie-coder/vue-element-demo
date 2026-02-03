@@ -73,7 +73,7 @@
 </template>
 
 <script>
-import { mapActions } from 'vuex';
+import { mapActions,mapState } from 'vuex';
 import * as echarts from 'echarts';
 import request from '../../utils/request';
 import AIPrediction from '../ai/AIPrediction.vue';
@@ -124,7 +124,11 @@ export default {
     // 获取当前股票代码
     currentCode() {
       return this.$route.params.code || '600519';
-    }
+    },
+    // 从Vuex获取当前选中的自选股数据
+    ...mapState({
+      currentOptionalStock: state => state.optionalStocks.find(stock => stock.code === state.currentStockCode) || {}
+    })
   },
   mounted() {
     // 加载股票详情

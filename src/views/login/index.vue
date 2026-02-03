@@ -32,15 +32,24 @@
       </el-form-item>
       
       <el-form-item>
-        <el-button 
-          type="primary" 
-          class="login-btn"
-          @click="handleLogin"
-          :loading="isLoading"
-          :disabled="isLoading" 
-        >
-          {{ isLoading ? '登录中...' : '登录' }}
-        </el-button>
+        <div class="button-row">
+          <el-button 
+            type="primary" 
+            class="login-btn"
+            @click="handleLogin"
+            :loading="isLoading"
+            :disabled="isLoading" 
+          >
+            {{ isLoading ? '登录中...' : '登录' }}
+          </el-button>
+          <el-button
+            type="primary"
+            class="register-btn"
+            @click="$router.push('/register')"
+          >
+            注册
+          </el-button>
+        </div>
       </el-form-item>
     </el-form>
   </div>
@@ -161,8 +170,34 @@ export default {
 
 /* 登录按钮 */
 .login-btn {
-  width: 100%;
   height: 40px;
   font-size: 16px;
+}
+
+/* 按钮并排 */
+.button-row {
+  display: flex;
+  gap: 10px;
+}
+.button-row .login-btn,
+.button-row .register-btn {
+  flex: 1;
+  height: 40px;
+  font-size: 16px;
+}
+
+/* 响应式：窄屏下按钮纵向排列 */
+@media (max-width: 480px) {
+  .login-form {
+    padding: 20px;
+  }
+  .button-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .button-row .login-btn,
+  .button-row .register-btn {
+    width: 100%;
+  }
 }
 </style>

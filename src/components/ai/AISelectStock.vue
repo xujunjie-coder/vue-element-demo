@@ -86,13 +86,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="reason" label="选股理由">
-            <template slot-scope="scope">
-              <el-tooltip :content="scope.row.reason" placement="top">
-                <div class="reason-text">{{ scope.row.reason }}</div>
-              </el-tooltip>
-            </template>
-          </el-table-column>
+
           <el-table-column label="操作" width="180">
             <template slot-scope="scope">
               <el-button
@@ -104,7 +98,7 @@
               </el-button>
               <el-button
                 type="text"
-                @click.stop="addOptionalStock(scope.row)"
+                @click.stop="handleAddOptionalStock(scope.row)"
                 class="operate-btn text-up"
               >
                 加入自选
@@ -177,10 +171,14 @@ export default {
     // 跳转个股详情
     goStockDetail(row) {
       this.changeStock({ code: row.code, name: row.name });
-      this.$router.push(`/detail/${row.code}`);
+      const target = `/detail/${row.code}`;
+      if (this.$route.path !== target) {
+        this.$router.push(target);
+      }
     },
-    // 加入自选股
-    addOptionalStock(row) {
+    // 修复：避免方法名覆盖 mapActions 的情况
+    handleAddOptionalStock(row) {
+      // 调用 Vuex action
       this.addOptionalStock({
         code: row.code,
         name: row.name,
@@ -189,17 +187,17 @@ export default {
       });
       this.$message.success(`已将 ${row.name} 加入自选股`);
     },
-    // 导出结果
+    // 导出结果，不包含理由列
     exportResult() {
       const exportData = this.resultList.map(item => ({
         股票代码: item.code,
         股票名称: item.name,
-        匹配分数: item.score,
-        选股理由: item.reason
+        匹配分数: item.score
       }));
-      exportExcel(exportData, 'AI智能选股结果');
+      exportExcel(exportData, 'AI智能选股结果.xlsx');
       this.$message.success('导出成功');
     }
+
   }
 };
 </script>

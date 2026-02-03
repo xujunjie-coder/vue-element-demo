@@ -17,8 +17,22 @@ import StockDetail from '../components/stock/StockDetail.vue';
 import AISelectStock from '../components/ai/AISelectStock.vue';
 import TradePanel from '../components/trade/TradePanel.vue';
 import Mine from '../components/mine/Mine.vue';
+import Register from '@/views/register/index.vue';
 
 Vue.use(Router);
+
+// 兼容：避免重复导航抛出未捕获异常（补丁）
+const originalPush = Router.prototype.push;
+Router.prototype.push = function push(location, onResolve, onReject) {
+  if (onResolve || onReject) return originalPush.call(this, location, onResolve, onReject);
+  return originalPush.call(this, location).catch((err) => {
+    // 静默处理重复导航错误
+    if (err && (err.name === 'NavigationDuplicated' || /Avoided redundant navigation/.test(err.message))) {
+      return err;
+    }
+    return Promise.reject(err);
+  });
+};
 
 /**
  * 路由守卫：验证登录状态
@@ -66,6 +80,12 @@ export default new Router({
       name: 'Login',
       component: Login,
       meta: { title: '系统登录' }
+    },
+    {
+      path: '/register',
+      name: 'Register',
+      component: Register,
+      meta: { title: '用户注册' }
     },
     {
       path: '/quote',

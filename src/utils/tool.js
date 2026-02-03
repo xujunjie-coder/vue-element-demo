@@ -1,3 +1,5 @@
+import * as XLSX from 'xlsx';
+
 /**
  * 节流函数
  * @param {Function} fn - 执行函数
@@ -73,4 +75,32 @@ export const generateStar = (score) => {
   const emptyStar = 10 - fullStar;
   return '<span style="color: var(--color-up);">' + '★'.repeat(fullStar) + '</span>' +
          '<span style="color: #e6e6e6;">' + '★'.repeat(emptyStar) + '</span>';
+};
+
+/**
+ * 导出 Excel 文件（简单实现）
+ * @param {Array<Object>} data - 导出数据（对象数组）
+ * @param {string} filename - 文件名（带后缀，例如 'data.xlsx'）
+ */
+export const exportExcel = (data = [], filename = 'export.xlsx') => {
+  try {
+    if (!Array.isArray(data) || data.length === 0) {
+      console.warn('exportExcel: empty data');
+    }
+    const ws = XLSX.utils.json_to_sheet(data || []);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error('exportExcel error', e);
+  }
 };

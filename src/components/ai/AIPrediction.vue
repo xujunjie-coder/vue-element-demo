@@ -44,10 +44,7 @@
 
     <!-- 完整报告（展开显示） -->
     <div class="prediction-detail" v-if="showDetail">
-      <div class="detail-item">
-        <div class="detail-label">预测理由：</div>
-        <div class="detail-content">{{ prediction.reason }}</div>
-      </div>
+
       <div class="detail-item">
         <div class="detail-label">支撑位：</div>
         <div class="detail-content">{{ supportPrice }} 元</div>
@@ -90,8 +87,7 @@ export default {
         trend: 'up',
         probability: 85,
         target_price: 1800,
-        reason: '基本面良好，资金持续流入，技术面形成上涨趋势'
-      })
+        })
     },
     currentPrice: {
       type: String,
