@@ -56,79 +56,87 @@
 </template>
 
 <script>
+import request from '@/utils/request';
 export default {
   name: 'Login',
   data() {
     return {
       loginForm: {
-        username: 'admin', // 测试默认账号
-        password: '123456' // 测试默认密码
+        username: '',
+        password: ''
       },
       loginRules: {
         username: [
           { required: true, message: '请输入用户名', trigger: 'blur' },
-          { whitespace: true, message: '用户名不能包含空格', trigger: 'blur' } // 新增：禁止空格
+          { whitespace: true, message: '用户名不能包含空格', trigger: 'blur' }
         ],
         password: [
           { required: true, message: '请输入密码', trigger: 'blur' },
-          { min: 6, max: 32, message: '密码长度需在6-32位之间', trigger: 'blur' },
-          { whitespace: true, message: '密码不能包含空格', trigger: 'blur' } // 新增：禁止空格
+          { whitespace: true, message: '密码不能包含空格', trigger: 'blur' }
         ]
       },
       isLoading: false
     };
   },
   mounted() {
-    // 新增：已登录时自动跳转到行情首页
-    if (localStorage.getItem('stock_token')) {
+    // 已登录时自动跳转到行情首页
+    if (localStorage.getItem('access_token')) {
       this.$router.push(this.$route.query.redirect || '/quote');
       this.$message.success('已登录，自动跳转...');
     }
   },
   methods: {
-    // 新增：处理输入框失焦，清除空格
+    // 处理输入框失焦，清除空格
     handleInputBlur(e) {
       const key = e.target.name;
       if (this.loginForm[key]) {
         this.loginForm[key] = this.loginForm[key].trim();
       }
     },
-    // 登录逻辑（修复：登录后强制刷新状态）
+    /**
+     * 登录逻辑（适配新后端API）
+     * 后端返回：{ status: "ok", access_token, refresh_token, token_type, expiration }
+     * 后端同时通过 set-cookie 写入 cookie，实现无感刷新
+     */
     handleLogin() {
-      this.$refs.loginForm.validate((valid) => {
+      this.$refs.loginForm.validate(async (valid) => {
         if (!valid) return;
-
         this.isLoading = true;
-        // 模拟接口请求延迟
-        setTimeout(() => {
-          try {
-            // 存储登录状态到本地存储
-            const token = `fake_token_${Date.now()}`;
-            localStorage.setItem('stock_token', token);
-            const userInfo = { 
-              username: this.loginForm.username.trim(),
-              role: 'user'
-            };
+        try {
+          const res = await request.login({
+            username: this.loginForm.username.trim(),
+            password: this.loginForm.password
+          });
+
+          // 后端返回格式：{ status: "ok", access_token, refresh_token, token_type, expiration }
+          if (res.status === 'ok' && res.access_token) {
+            // 存储 token 到 localStorage（cookie 由后端 set-cookie 自动管理）
+            localStorage.setItem('access_token', res.access_token);
+            if (res.refresh_token) localStorage.setItem('refresh_token', res.refresh_token);
+            if (res.expiration) localStorage.setItem('token_expiration', res.expiration);
+
+            const userInfo = { username: this.loginForm.username.trim() };
             localStorage.setItem('user_info', JSON.stringify(userInfo));
-            
-            // 更新Vuex状态
+
             this.$store.commit('setLoginStatus', true);
             this.$store.commit('setUserInfo', userInfo);
-            // 强制初始化状态，确保同步
             this.$store.dispatch('initLoginState');
-            
-            // 跳转页面（优先跳回被拦截的页面）
+
             const redirect = this.$route.query.redirect || '/quote';
             this.$router.push(redirect);
-            
             this.$message.success('登录成功！');
-          } catch (err) {
-            this.$message.error('登录失败，请重试');
-            console.error('登录错误：', err);
-          } finally {
-            this.isLoading = false;
+          } else {
+            this.$message.error('登录失败：未返回有效凭证');
           }
-        }, 800);
+        } catch (err) {
+          // 响应拦截器已经弹出了 Message，这里只做兜底
+          const msg = (err && err.data) || (err && err.msg) || (err && err.message) || '登录失败';
+          if (typeof msg === 'string' && !msg.includes('接口请求失败')) {
+            // 避免重复弹窗（拦截器已弹过）
+          }
+        } finally {
+          this.isLoading = false;
+        }
       });
     }
   }

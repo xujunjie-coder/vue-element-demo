@@ -3,26 +3,30 @@ module.exports = {
 
   devServer: {
     port: 8089,
-    open: true 
-    
-    // proxy: {
-    //   '/api': {
-    //     target: process.env.VUE_APP_API_BASE_URL,
-    //     changeOrigin: true,
-    //     pathRewrite: { '^/api': '' }
-    //   },
-    //   '/ai-api': {
-    //     target: process.env.VUE_APP_AI_API_BASE_URL,
-    //     changeOrigin: true,
-    //     pathRewrite: { '^/ai-api': '' }
-    //   }
-    // }
-  },
-  // css: {
-  //   loaderOptions: {
-  //     sass: {
-  //       additionalData: `@import "@/assets/css/global.css"; @import "@/assets/css/media.css";`
-  //     }
-  //   }
-  // }
+    open: true,
+
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        pathRewrite: { '^/api': '' },
+        // 转发 cookie
+        cookieDomainRewrite: 'localhost',
+        onProxyRes(proxyRes) {
+          // 确保 set-cookie 能正确转发
+          const sc = proxyRes.headers['set-cookie'];
+          if (Array.isArray(sc)) {
+            proxyRes.headers['set-cookie'] = sc.map(s =>
+              s.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=\w+/gi, '; SameSite=Lax')
+            );
+          }
+        }
+      },
+      '/ai-api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        pathRewrite: { '^/ai-api': '' }
+      }
+    }
+  }
 };

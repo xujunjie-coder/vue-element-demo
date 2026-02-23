@@ -38,7 +38,7 @@ Router.prototype.push = function push(location, onResolve, onReject) {
  * 路由守卫：验证登录状态
  */
 const routerGuard = (to, from, next) => {
-  const isLogin = store.state.isLogin || localStorage.getItem('stock_token');
+  const isLogin = store.state.isLogin || localStorage.getItem('access_token');
   
   // 需要登录但未登录时，跳转到登录页（携带跳转前的路径）
   if (to.meta.requiresAuth && !isLogin) {
@@ -144,8 +144,6 @@ export default new Router({
       name: 'Mine',
       components: {
         header: Header,
-        sidebar: Sidebar,
-        rightAside: RightAside,
         default: Mine,
         footer: Footer
       },

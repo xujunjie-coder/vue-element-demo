@@ -82,24 +82,17 @@ export default {
         if (!valid) return;
         this.isLoading = true;
         try {
-          const res = await request.register({ username: this.registerForm.username.trim(), password: this.registerForm.password });
-          // 兼容 Mock 返回格式（登录接口返回 token + userInfo）
-          const token = res.token || (res.data && res.data.token) || '';
-          const userInfo = res.userInfo || (res.data && res.data.userInfo) || res;
-          if (token) {
-            localStorage.setItem('stock_token', token);
-            localStorage.setItem('user_info', JSON.stringify(userInfo || { username: this.registerForm.username.trim() }));
-            this.$store.commit('setLoginStatus', true);
-            this.$store.commit('setUserInfo', userInfo || { username: this.registerForm.username.trim() });
-            this.$store.dispatch('initLoginState');
-            this.$message.success('注册成功，已登录');
-            this.$router.push('/quote');
-          } else {
-            this.$message.success('注册成功，请登录');
-            this.$router.push('/login');
-          }
+          const res = await request.register({
+            username: this.registerForm.username.trim(),
+            password: this.registerForm.password
+          });
+          // 后端注册成功返回：{ status: "ok", msg: "注册成功" }
+          // 注册只创建账号，不自动登录，引导用户去登录页
+          this.$message.success(res.msg || '注册成功，请登录');
+          this.$router.push('/login');
         } catch (err) {
-          this.$message.error(err.msg || err.message || '注册失败');
+          // 响应拦截器已处理错误提示（如 409: 用户名已被使用）
+          // 这里只做兜底
         } finally {
           this.isLoading = false;
         }

@@ -46,7 +46,7 @@
                 <el-option
                   v-for="(val, key) in MarketType"
                   :key="key"
-                  :label="key === 'CN_A' ? '沪深A股' : key === 'CHUANGYE' ? '创业板' : '科创板'"
+                  :label="MarketTypeLabel[key] || key"
                   :value="val"
                 ></el-option>
               </el-select>
@@ -129,7 +129,7 @@
 <script>
 import { mapActions } from 'vuex';
 import request from '../../utils/request';
-import { SelectStrategy, MarketType } from '../../utils/constants';
+import { SelectStrategy, MarketType, MarketTypeLabel } from '../../utils/constants';
 import { generateStar } from '../../utils/tool';
 import { exportExcel } from '../../utils/tool';
 
@@ -139,6 +139,7 @@ export default {
     return {
       SelectStrategy,
       MarketType,
+      MarketTypeLabel,
       selectForm: {
         strategy: '',
         count: 10,

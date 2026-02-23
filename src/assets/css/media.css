@@ -1,72 +1,201 @@
-/* 移动端 (<768px) */
+/* ============================================================
+   响应式适配 — 三端断点 (Mobile / Tablet / PC)
+   ============================================================ */
+
+/* ==================== 移动端 (<768px) ==================== */
 @media screen and (max-width: 767px) {
   :root {
     --font-size-base: var(--font-size-mobile);
     --spacing-base: var(--spacing-mobile);
     --border-radius-base: var(--border-radius-mobile);
   }
-  .hide-on-mobile {
-    display: none !important;
-  }
-  .hide-on-pc {
-    display: block !important;
-  }
+
+  /* --- 显示/隐藏 --- */
+  .hide-on-mobile { display: none !important; }
+  .hide-on-pc    { display: block !important; }
+
+  /* --- 卡片 --- */
   .card-container {
-    padding: 10px;
-    margin: 5px;
+    padding: 8px 10px;
+    margin: 4px;
     box-shadow: none;
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius-mobile);
   }
-  .data-text {
-    font-size: 18px;
-  }
+
+  /* --- 顶部导航 --- */
   .el-header {
-    height: 50px !important;
-    line-height: 50px !important;
-    padding: 0 10px !important;
+    height: 48px !important;
+    line-height: 48px !important;
+    padding: 0 8px !important;
   }
+  .el-header .logo { font-size: 15px !important; }
+  .el-header .nav-right .el-button { padding: 4px 8px !important; font-size: 12px !important; }
+
+  /* --- 底部 --- */
   .el-footer {
-    height: 30px !important;
+    height: 28px !important;
     font-size: 10px !important;
+    line-height: 28px !important;
   }
-  .k-line-chart {
-    height: 300px !important;
+
+  /* --- 数据文字 --- */
+  .data-text { font-size: 16px; }
+
+  /* --- 行情表格 --- */
+  .quote-table .el-table {
+    font-size: 11px !important;
+  }
+  .quote-table .el-table th,
+  .quote-table .el-table td {
+    padding: 4px 2px !important;
+  }
+  /* 移动端隐藏次要列 */
+  .quote-table .el-table .el-table__header-wrapper th:nth-child(1),
+  .quote-table .el-table .el-table__body-wrapper td:nth-child(1),
+  .quote-table .el-table .el-table__header-wrapper th:nth-child(8),
+  .quote-table .el-table .el-table__body-wrapper td:nth-child(8),
+  .quote-table .el-table .el-table__header-wrapper th:nth-child(9),
+  .quote-table .el-table .el-table__body-wrapper td:nth-child(9) {
+    display: none;
+  }
+
+  /* --- 分页 --- */
+  .el-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
+  .el-pagination .el-pagination__sizes,
+  .el-pagination .el-pagination__jump {
+    display: none !important;
+  }
+
+  /* --- 筛选栏 --- */
+  .filter-bar .el-row .el-col {
+    margin-bottom: 6px;
+  }
+  .filter-bar .el-select,
+  .filter-bar .el-input {
+    width: 100% !important;
+  }
+
+  /* --- 交易面板 --- */
+  .trade-form .el-form-item__label {
+    width: 72px !important;
+    font-size: 12px !important;
+  }
+  .trade-form .el-form-item__content {
+    margin-left: 80px !important;
+  }
+  .trade-form .el-input,
+  .trade-form .el-select,
+  .trade-form .el-autocomplete {
+    width: 100% !important;
+  }
+
+  /* --- 持仓 / 委托表格 --- */
+  .hold-table .el-table,
+  .order-table .el-table {
+    font-size: 11px !important;
+  }
+
+  /* --- 个股详情 --- */
+  .stock-detail-header {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .stock-detail-header .stock-price {
+    font-size: 22px !important;
+  }
+
+  /* --- 个人中心 --- */
+  .mine-stats .el-col {
+    margin-bottom: 8px;
+  }
+
+  /* --- 登录/注册 --- */
+  .login-container,
+  .register-container {
+    padding: 16px !important;
+    width: 92% !important;
+    margin: 20px auto !important;
+  }
+  .login-container .el-form-item__label,
+  .register-container .el-form-item__label {
+    font-size: 12px !important;
   }
 }
 
-/* 平板端 (768px-1199px) */
+/* ==================== 平板端 (768px-1199px) ==================== */
 @media screen and (min-width: 768px) and (max-width: 1199px) {
   :root {
     --font-size-base: var(--font-size-tablet);
-    --spacing-base: 15px;
+    --spacing-base: 12px;
     --border-radius-base: var(--border-radius-pc);
   }
-  .sidebar {
-    width: 200px !important;
+
+  /* --- 侧边栏 --- */
+  .sidebar { width: 200px !important; }
+  .right-aside { width: 240px !important; }
+
+  /* --- 数据文字 --- */
+  .data-text { font-size: 20px; }
+
+  /* --- 卡片 --- */
+  .card-container {
+    padding: 10px 12px;
+    margin: 4px;
   }
-  .right-aside {
-    width: 250px !important;
+
+  /* --- 顶部 --- */
+  .el-header {
+    height: 54px !important;
+    line-height: 54px !important;
+    padding: 0 12px !important;
   }
-  .data-text {
-    font-size: 20px;
+
+  /* --- 行情表格 --- */
+  .quote-table .el-table {
+    font-size: 12px !important;
+  }
+  .quote-table .el-table th,
+  .quote-table .el-table td {
+    padding: 5px 4px !important;
+  }
+
+  /* --- 交易面板 --- */
+  .trade-form .el-form-item__label {
+    width: 88px !important;
+    font-size: 13px !important;
+  }
+  .trade-form .el-form-item__content {
+    margin-left: 96px !important;
   }
 }
 
-/* PC端 (≥1200px) */
+/* ==================== PC端 (≥1200px) ==================== */
 @media screen and (min-width: 1200px) {
   :root {
     --font-size-base: var(--font-size-pc);
     --spacing-base: var(--spacing-pc);
     --border-radius-base: var(--border-radius-pc);
   }
-  .sidebar {
-    width: 240px !important;
-  }
-  .right-aside {
-    width: 300px !important;
-  }
-  .data-text {
-    font-size: 24px;
-  }
+  .sidebar { width: 240px !important; }
+  .right-aside { width: 300px !important; }
+  .data-text { font-size: 24px; }
+}
+
+/* ==================== 通用：横屏小高度适配 ==================== */
+@media screen and (max-height: 600px) {
+  .el-header { height: 44px !important; line-height: 44px !important; }
+  .el-footer { height: 24px !important; font-size: 10px !important; }
+}
+
+/* ==================== 通用：宽屏优化 (≥1600px) ==================== */
+@media screen and (min-width: 1600px) {
+  .sidebar { width: 260px !important; }
+  .right-aside { width: 340px !important; }
+  .card-container { max-width: 1400px; }
 }

@@ -6,7 +6,7 @@ Vue.use(Vuex);
 export default new Vuex.Store({
   state: {
     // 登录状态：优先从localStorage读取，确保刷新后状态不丢失
-    isLogin: !!localStorage.getItem('stock_token'),
+    isLogin: !!localStorage.getItem('access_token'),
     // 用户信息：刷新后从localStorage恢复
     userInfo: JSON.parse(localStorage.getItem('user_info') || '{}'),
     // 当前选中的股票代码
@@ -20,10 +20,10 @@ export default new Vuex.Store({
     // 设置登录状态
     setLoginStatus(state, status) {
       state.isLogin = status;
-      if (status) {
-        localStorage.setItem('stock_token', localStorage.getItem('stock_token') || `fake_token_${Date.now()}`);
-      } else {
-        localStorage.removeItem('stock_token');
+      if (!status) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('token_expiration');
       }
     },
     // 设置用户信息
@@ -58,17 +58,18 @@ export default new Vuex.Store({
   actions: {
     // 退出登录
     logout({ commit }) {
-      localStorage.removeItem('stock_token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('token_expiration');
       localStorage.removeItem('user_info');
       commit('setLoginStatus', false);
       commit('setUserInfo', {});
-      commit('BATCH_DELETE_OPTIONAL_STOCK', []); // 退出时清空自选股（可选，可删除）
       Vue.prototype.$message.success('退出登录成功！');
       window.location.href = '/login';
     },
     // 初始化登录状态
     initLoginState({ commit }) {
-      const token = localStorage.getItem('stock_token');
+      const token = localStorage.getItem('access_token');
       const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
       if (token && userInfo.username) {
         commit('setLoginStatus', true);

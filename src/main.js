@@ -8,8 +8,8 @@ import ElementUI from 'element-ui';
 import 'element-ui/lib/theme-chalk/index.css';
 import './assets/css/global.css';
 import './assets/css/media.css';
-// 引入Mock数据
-import './mock/index';
+// Mock 数据（对接真实后端时注释掉下面这行）
+// import './mock/index';
 // 引入请求工具
 import request from './utils/request';
 

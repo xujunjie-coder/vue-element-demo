@@ -7,13 +7,9 @@
         <div class="header-actions">
           <el-select v-model="newsTag" size="mini" @change="filterNews" placeholder="全部">
             <el-option label="全部" value=""></el-option>
-            <el-option label="央行" value="央行"></el-option>
-            <el-option label="产业" value="产业"></el-option>
             <el-option label="资金" value="资金"></el-option>
-            <el-option label="政策" value="政策"></el-option>
             <el-option label="宏观" value="宏观"></el-option>
             <el-option label="板块" value="板块"></el-option>
-            <el-option label="汇率" value="汇率"></el-option>
             <el-option label="实时" value="实时"></el-option>
           </el-select>
           <el-button type="text" icon="el-icon-refresh" @click="refreshNews"></el-button>
@@ -54,22 +50,39 @@
         </el-select>
       </div>
       <div class="hot-stock-list">
-        <div 
-          v-for="(stock, index) in hotStockList" 
-          :key="stock.code" 
-          class="hot-stock-item"
-          @click="goStockDetail(stock)"
-        >
-          <span class="rank">{{ index + 1 }}</span>
-          <div class="stock-info">
-            <span class="stock-code">{{ stock.code }}</span>
-            <span class="stock-name">{{ stock.name }}</span>
+        <!-- 加载骨架屏 -->
+        <template v-if="hotStockLoading && hotStockList.length === 0">
+          <div v-for="n in 6" :key="'skeleton-' + n" class="hot-stock-item skeleton-item">
+            <span class="rank skeleton-block skeleton-rank"></span>
+            <div class="stock-info">
+              <span class="skeleton-block skeleton-code"></span>
+              <span class="skeleton-block skeleton-name"></span>
+            </div>
+            <div class="stock-price">
+              <span class="skeleton-block skeleton-price"></span>
+              <span class="skeleton-block skeleton-change"></span>
+            </div>
           </div>
-          <div class="stock-price">
-            <span class="price">{{ stock.price }}</span>
-            <span :class="getChangeClass(stock.change)">{{ stock.change_rate }}%</span>
+        </template>
+        <!-- 实际数据 -->
+        <template v-else>
+          <div 
+            v-for="(stock, index) in hotStockList" 
+            :key="stock.code" 
+            class="hot-stock-item"
+            @click="goStockDetail(stock)"
+          >
+            <span class="rank">{{ index + 1 }}</span>
+            <div class="stock-info">
+              <span class="stock-code">{{ stock.code }}</span>
+              <span class="stock-name">{{ stock.name }}</span>
+            </div>
+            <div class="stock-price">
+              <span class="price">{{ stock.price }}</span>
+              <span :class="getChangeClass(stock.change)">{{ stock.change_rate }}%</span>
+            </div>
           </div>
-        </div>
+        </template>
       </div>
     </div>
     <!-- 交易提醒模块（新增休市提示+倒计时） -->
@@ -113,43 +126,35 @@
   </el-aside>
 </template>
 <script>
-import { getChangeClass } from '../../utils/format';
+import { getChangeClass, formatPrice, formatChangeRate } from '../../utils/format';
 import { getCache, setCache } from '../../utils/tool';
+import request from '../../utils/request';
 export default {
   name: 'RightAside',
   data() {
     return {
-      // 财经快讯数据（新增read状态）
-      newsList: [
-        { time: '09:23', content: '央行：保持流动性合理充裕，精准有力实施稳健的货币政策', tag: '央行', tagType: 'primary', read: false },
-        { time: '09:45', content: '新能源汽车产业发展规划发布，行业迎来新机遇', tag: '产业', tagType: 'success', read: false },
-        { time: '10:12', content: '今日北向资金净流入超50亿元，主要加仓消费板块', tag: '资金', tagType: 'warning', read: false },
-        { time: '10:35', content: '工信部：加快推进人工智能产业创新发展', tag: '政策', tagType: 'info', read: false },
-        { time: '11:08', content: '上半年GDP同比增长5.5%，经济运行总体回升向好', tag: '宏观', tagType: 'danger', read: false },
-        { time: '13:45', content: '半导体板块异动拉升，国产替代进程加速', tag: '板块', tagType: 'success', read: false },
-        { time: '14:20', content: '人民币兑美元汇率小幅升值，汇率保持基本稳定', tag: '汇率', tagType: 'info', read: false }
-      ],
+      // 财经快讯数据（实时生成）
+      newsList: [],
       newsTag: '', // 快讯筛选标签
       filteredNewsList: [], // 筛选后的快讯列表
       isLoadingNews: false, // 快讯加载中标记
-      newsPage: 1, // 快讯分页（模拟滚动加载）
+      newsPage: 1, // 快讯分页
       // 热门股票类型
       hotStockType: 'rise',
       hotStockList: [],
+      hotStockLoading: false,
       // 交易提醒相关（新增休市判断+倒计时）
       isHoliday: false,
       countdownText: ''
     };
   },
   mounted() {
-    // 加载热门股票数据
-    this.fetchHotStocks();
-    // 初始化快讯筛选
-    this.filteredNewsList = [...this.newsList];
-    // 定时刷新快讯（5分钟一次）
+    // 统一加载：热门股票 + 财经快讯共享同一次 getSpot 请求
+    this.fetchAllSpotData();
+    // 定时刷新（3分钟一次，共享请求）
     this.newsTimer = setInterval(() => {
-      this.refreshNews();
-    }, 300000);
+      this.fetchAllSpotData();
+    }, 180000);
     // 初始化市场状态（判断是否休市+倒计时）
     this.initMarketStatus();
     // 每秒更新倒计时
@@ -170,53 +175,188 @@ export default {
   computed: {},
   methods: {
     getChangeClass,
-    // 获取热门股票数据
-    fetchHotStocks() {
-      const mockData = {
-        rise: [
-          { code: '600519', name: '贵州茅台', price: '1890.00', change: '+2.56', change_rate: '+1.37' },
-          { code: '000858', name: '五粮液', price: '178.50', change: '+2.12', change_rate: '+1.20' },
-          { code: '601318', name: '中国平安', price: '45.80', change: '+0.85', change_rate: '+1.89' },
-          { code: '002594', name: '比亚迪', price: '285.60', change: '+5.20', change_rate: '+1.85' },
-          { code: '600036', name: '招商银行', price: '38.90', change: '+0.65', change_rate: '+1.70' }
-        ],
-        fall: [
-          { code: '601689', name: '拓普集团', price: '56.80', change: '-1.85', change_rate: '-3.16' },
-          { code: '002475', name: '立讯精密', price: '32.50', change: '-0.98', change_rate: '-2.94' },
-          { code: '601899', name: '紫金矿业', price: '10.25', change: '-0.28', change_rate: '-2.67' },
-          { code: '000333', name: '美的集团', price: '58.60', change: '-1.52', change_rate: '-2.53' },
-          { code: '600887', name: '伊利股份', price: '28.30', change: '-0.70', change_rate: '-2.42' }
-        ],
-        turnover: [
-          { code: '300750', name: '宁德时代', price: '189.50', change: '+1.25', change_rate: '+0.66', turnover: '8.5%' },
-          { code: '000001', name: '平安银行', price: '12.80', change: '+0.15', change_rate: '+1.18', turnover: '7.8%' },
-          { code: '600030', name: '中信证券', price: '21.50', change: '+0.32', change_rate: '+1.51', turnover: '7.2%' },
-          { code: '002415', name: '海康威视', price: '35.80', change: '-0.45', change_rate: '-1.24', turnover: '6.9%' },
-          { code: '601012', name: '隆基绿能', price: '18.60', change: '+0.25', change_rate: '+1.36', turnover: '6.5%' }
-        ]
-      };
-      
-      this.hotStockList = mockData[this.hotStockType];
-      setCache(`hot_stocks_${this.hotStockType}`, this.hotStockList);
-    },
-    // 刷新快讯（新增已读状态保持）
-    refreshNews() {
-      const newNews = {
-        time: new Date().toLocaleTimeString().slice(0, 5),
-        content: `实时行情：${this.hotStockList[0].name}(${this.hotStockList[0].code})${this.hotStockList[0].change_rate}，领涨${this.hotStockType === 'rise' ? '两市' : '跌幅榜'}`,
-        tag: '实时',
-        tagType: 'warning',
-        read: false
-      };
-      
-      this.newsList.unshift(newNews);
-      // 最多保留20条
-      if (this.newsList.length > 20) {
-        this.newsList.pop();
+    /**
+     * 统一获取 spot 数据，一次请求同时更新热门股票和财经快讯
+     * 避免之前 fetchHotStocks + generateRealTimeNews 各自调一次 getSpot
+     */
+    async fetchAllSpotData() {
+      this.hotStockLoading = true;
+      this.isLoadingNews = true;
+
+      // 优先使用缓存快速渲染热门股票
+      const cacheKey = `hot_stocks_${this.hotStockType}`;
+      const cached = getCache(cacheKey);
+      if (cached && cached.length) {
+        this.hotStockList = cached;
+        this.hotStockLoading = false;
       }
-      
-      // 重新筛选
-      this.filterNews();
+
+      try {
+        // 只发一次请求（getSpot 内部有去重+短缓存）
+        const res = await request.getSpot('ShA');
+        const rawList = res.data || [];
+
+        // 同时更新热门股票和快讯
+        this._updateHotStocks(rawList);
+        this._generateNewsFromData(rawList);
+      } catch (err) {
+        console.warn('fetchAllSpotData error:', err);
+      } finally {
+        this.hotStockLoading = false;
+        this.isLoadingNews = false;
+      }
+    },
+    // 从已获取的 rawList 更新热门股票
+    _updateHotStocks(rawList) {
+      const mapped = rawList.map(item => ({
+        code: item.code || '',
+        name: item.name || '',
+        price: formatPrice(item.last),
+        change: formatPrice(item.ud),
+        change_rate: formatChangeRate(item.zd),
+        _zd: Number(item.zd) || 0,
+        _hsr: Number(item.hsr) || 0
+      }));
+
+      let sorted = [];
+      if (this.hotStockType === 'rise') {
+        sorted = [...mapped].sort((a, b) => b._zd - a._zd);
+      } else if (this.hotStockType === 'fall') {
+        sorted = [...mapped].sort((a, b) => a._zd - b._zd);
+      } else {
+        sorted = [...mapped].sort((a, b) => b._hsr - a._hsr);
+      }
+
+      this.hotStockList = sorted.slice(0, 10);
+      const cacheKey = `hot_stocks_${this.hotStockType}`;
+      setCache(cacheKey, this.hotStockList, 60);
+    },
+    // 获取热门股票数据（切换类型时调用）
+    async fetchHotStocks() {
+      this.hotStockList = [];
+      this.hotStockLoading = true;
+
+      const cacheKey = `hot_stocks_${this.hotStockType}`;
+      const cached = getCache(cacheKey);
+      if (cached && cached.length) {
+        this.hotStockList = cached;
+        this.hotStockLoading = false;
+        return; // 切换类型时优先用缓存，不再重新请求
+      }
+      try {
+        const res = await request.getSpot('ShA');
+        this._updateHotStocks(res.data || []);
+      } catch (err) {
+        console.warn('fetchHotStocks error:', err);
+      } finally {
+        this.hotStockLoading = false;
+      }
+    },
+    // 从实时行情数据生成财经快讯（从已有数据生成，不再重新请求）
+    _generateNewsFromData(rawList) {
+        if (!rawList.length) return;
+
+        const now = new Date();
+        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+        // 按涨跌幅排序
+        const sorted = [...rawList].sort((a, b) => (Number(b.zd) || 0) - (Number(a.zd) || 0));
+        const topGainers = sorted.slice(0, 5);
+        const topLosers = sorted.slice(-5).reverse();
+
+        // 按换手率排序
+        const byTurnover = [...rawList].sort((a, b) => (Number(b.hsr) || 0) - (Number(a.hsr) || 0));
+        const hotTurnover = byTurnover.slice(0, 3);
+
+        // 涨跌统计
+        let upCount = 0, downCount = 0, flatCount = 0;
+        rawList.forEach(item => {
+          const zd = Number(item.zd) || 0;
+          if (zd > 0) upCount++;
+          else if (zd < 0) downCount++;
+          else flatCount++;
+        });
+
+        const generated = [];
+
+        // 1. 市场总览
+        generated.push({
+          time: timeStr,
+          content: `沪市A股共${rawList.length}只，上涨${upCount}只，下跌${downCount}只，平盘${flatCount}只`,
+          tag: '宏观', tagType: 'danger', read: false
+        });
+
+        // 2. 涨幅榜前3
+        if (topGainers.length >= 3) {
+          generated.push({
+            time: timeStr,
+            content: `涨幅榜领涨：${topGainers[0].name}(${topGainers[0].code}) +${formatChangeRate(topGainers[0].zd)}%，${topGainers[1].name} +${formatChangeRate(topGainers[1].zd)}%，${topGainers[2].name} +${formatChangeRate(topGainers[2].zd)}%`,
+            tag: '板块', tagType: 'success', read: false
+          });
+        }
+
+        // 3. 跌幅榜
+        if (topLosers.length >= 3) {
+          generated.push({
+            time: timeStr,
+            content: `跌幅榜领跌：${topLosers[0].name}(${topLosers[0].code}) ${formatChangeRate(topLosers[0].zd)}%，${topLosers[1].name} ${formatChangeRate(topLosers[1].zd)}%`,
+            tag: '板块', tagType: 'warning', read: false
+          });
+        }
+
+        // 4. 换手率活跃股
+        if (hotTurnover.length >= 2) {
+          generated.push({
+            time: timeStr,
+            content: `换手率活跃：${hotTurnover[0].name} 换手${Number(hotTurnover[0].hsr).toFixed(2)}%，${hotTurnover[1].name} 换手${Number(hotTurnover[1].hsr).toFixed(2)}%`,
+            tag: '资金', tagType: 'warning', read: false
+          });
+        }
+
+        // 5. 成交额最大的股票
+        const byAmount = [...rawList].sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0));
+        if (byAmount.length >= 2) {
+          const a1 = byAmount[0];
+          const amountYi = (Number(a1.amount) / 100000000).toFixed(2);
+          generated.push({
+            time: timeStr,
+            content: `成交额榜首：${a1.name}(${a1.code}) 成交${amountYi}亿元，涨跌幅${formatChangeRate(a1.zd)}%`,
+            tag: '资金', tagType: 'primary', read: false
+          });
+        }
+
+        // 6. 涨停股统计
+        const limitUp = rawList.filter(item => Number(item.zd) >= 9.9);
+        const limitDown = rawList.filter(item => Number(item.zd) <= -9.9);
+        if (limitUp.length > 0 || limitDown.length > 0) {
+          generated.push({
+            time: timeStr,
+            content: `涨跌停统计：涨停${limitUp.length}只，跌停${limitDown.length}只${limitUp.length > 0 ? '，涨停股：' + limitUp.slice(0, 3).map(s => s.name).join('、') : ''}`,
+            tag: '板块', tagType: 'danger', read: false
+          });
+        }
+
+        // 7. 异动个股提醒
+        const bigMoves = sorted.filter(s => Math.abs(Number(s.zd) || 0) >= 5).slice(0, 10);
+        for (let i = 0; i < Math.min(3, bigMoves.length); i++) {
+          const idx = Math.floor(Math.random() * bigMoves.length);
+          const s = bigMoves[idx];
+          if (!s) continue;
+          const zd = Number(s.zd) || 0;
+          generated.push({
+            time: timeStr,
+            content: `${s.name}(${s.code})异动${zd > 0 ? '拉升' : '下跌'}，现价${formatPrice(s.last)}元，涨跌幅${formatChangeRate(s.zd)}%，成交量${s.vol}手`,
+            tag: '实时', tagType: zd > 0 ? 'success' : 'info', read: false
+          });
+        }
+
+        // 合并新快讯到列表顶部，保留旧的最多10条
+        this.newsList = [...generated, ...this.newsList.slice(0, 10)].slice(0, 20);
+        this.filterNews();
+    },
+    // 手动刷新快讯
+    refreshNews() {
+      this.fetchAllSpotData();
       this.$message.success('快讯已更新');
     },
     // 筛选快讯
@@ -520,5 +660,44 @@ export default {
 }
 .blink {
   animation: blink 1s infinite;
+}
+/* 骨架屏加载动画 */
+.skeleton-item {
+  pointer-events: none;
+}
+.skeleton-block {
+  display: inline-block;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+.skeleton-rank {
+  width: 20px;
+  height: 16px;
+}
+.skeleton-code {
+  width: 60px;
+  height: 14px;
+  margin-bottom: 4px;
+}
+.skeleton-name {
+  width: 45px;
+  height: 12px;
+}
+.skeleton-price {
+  width: 50px;
+  height: 14px;
+  margin-bottom: 4px;
+  margin-left: auto;
+}
+.skeleton-change {
+  width: 40px;
+  height: 12px;
+  margin-left: auto;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 </style>

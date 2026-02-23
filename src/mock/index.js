@@ -2,9 +2,40 @@ import Mock from 'mockjs';
 import { MsgType } from '../utils/constants';
 import { buildRequestMsg } from '../utils/request';
 
-// Mock行情列表（修复：GET请求从URL解析参数，而非body）
+// 简易 JWT 实现（仅用于前端 Mock 环境）
+const makeToken = (user) => {
+  const payload = {
+    username: user.username,
+    id: user.id,
+    exp: Date.now() + 1000 * 60 * 60 // 有效期1小时
+  };
+  // 使用 base64 表示，结构为 base64(payload)
+  return btoa(JSON.stringify(payload));
+};
+
+const parseToken = (token) => {
+  if (!token) return null;
+  try {
+    // 支持 Bearer 前缀
+    if (token.startsWith('Bearer ')) token = token.slice(7);
+    const payload = JSON.parse(atob(token));
+    if (payload && payload.exp && payload.exp > Date.now()) {
+      return payload;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const getAuthPayloadFromOptions = (options) => {
+  const headers = options && (options.headers || {});
+  const auth = headers.Authorization || headers.authorization || '';
+  return parseToken(auth);
+};
+
+// Mock行情列表
 Mock.mock(/\/api\/stock\/quote/, 'get', (options) => {
-  // 修复1：GET请求参数从URL提取（body为空，无法解析）
   const url = new URL(options.url, window.location.origin);
   const params = {
     page: url.searchParams.get('page') || 1,
@@ -27,7 +58,7 @@ Mock.mock(/\/api\/stock\/quote/, 'get', (options) => {
     }]
   }).list;
 
-  // 修复2：按request.js的解析规则返回（data为buildRequestMsg结果）
+  // 2：按request.js的解析规则返回（data为buildRequestMsg结果）
   return {
     code: 200,
     data: buildRequestMsg(MsgType.MSG_OK, {
@@ -39,7 +70,7 @@ Mock.mock(/\/api\/stock\/quote/, 'get', (options) => {
   };
 });
 
-// Mock个股详情（保持不变，URL参数解析正确）
+// Mock个股详情
 Mock.mock(/\/api\/stock\/detail\/.*/, 'get', (options) => {
   const code = options.url.split('/').pop();
   const klineData = Mock.mock({
@@ -118,7 +149,11 @@ Mock.mock(/\/ai-api\/ai\/select/, 'post', (options) => {
 });
 
 // Mock持仓列表（保持不变）
-Mock.mock('/api/trade/hold', 'get', () => {
+Mock.mock('/api/trade/hold', 'get', (options) => {
+  const payload = getAuthPayloadFromOptions(options);
+  if (!payload) {
+    return { code: 401, msg: '未登录或会话已过期' };
+  }
   const list = Mock.mock({
     'list|0-5': [{
       'code|6': /[0-9]/,
@@ -133,6 +168,7 @@ Mock.mock('/api/trade/hold', 'get', () => {
   return {
     code: 200,
     data: buildRequestMsg(MsgType.MSG_OK, {
+      username: payload.username,
       list,
       balance: 100000.00
     })
@@ -140,11 +176,16 @@ Mock.mock('/api/trade/hold', 'get', () => {
 });
 
 // Mock用户信息（保持不变）
-Mock.mock('/api/user/info', 'get', () => {
+Mock.mock('/api/user/info', 'get', (options) => {
+  const payload = getAuthPayloadFromOptions(options);
+  if (!payload) {
+    return { code: 401, msg: '未登录或会话已过期' };
+  }
   return {
     code: 200,
     data: buildRequestMsg(MsgType.MSG_OK, {
-      username: '张三',
+      username: payload.username || '张三',
+      id: payload.id,
       balance: 100000.00,
       today_profit: Mock.Random.float(0, 5000, 2, 2),
       collect: Mock.mock({ 'array|3-6': ['@string("number",6)'] }).array
@@ -154,6 +195,10 @@ Mock.mock('/api/user/info', 'get', () => {
 
 // Mock交易下单接口（新增）
 Mock.mock('/api/trade/order', 'post', (options) => {
+  const payload = getAuthPayloadFromOptions(options);
+  if (!payload) {
+    return { code: 401, msg: '未登录或会话已过期' };
+  }
   // 解析POST请求的参数（兼容 buildRequestMsg 包装）
   let reqDataRaw;
   try {
@@ -176,6 +221,7 @@ Mock.mock('/api/trade/order', 'post', (options) => {
     code: 200,
     data: buildRequestMsg(MsgType.MSG_OK, {
       order_no: Mock.Random.string('number', 10),
+      user: { username: payload.username, id: payload.id },
       code: params.code,
       name: Mock.Random.cword(2, 4),
       price: params.price,
@@ -188,7 +234,11 @@ Mock.mock('/api/trade/order', 'post', (options) => {
   };
 });
 // 新增：Mock委托单列表接口（替换组件硬编码数据）
-Mock.mock('/api/trade/order/list', 'get', () => {
+Mock.mock('/api/trade/order/list', 'get', (options) => {
+  const payload = getAuthPayloadFromOptions(options);
+  if (!payload) {
+    return { code: 401, msg: '未登录或会话已过期' };
+  }
   const orderList = Mock.mock({
     'list|2-5': [{
       'order_no|10': /[0-9]/,
@@ -234,14 +284,16 @@ Mock.mock('/api/user/login', 'post', (options) => {
   const reqData = JSON.parse(options.body);
   // 模拟账号密码正确（admin/123456）
   if (reqData.username === 'admin' && reqData.password === '123456') {
+    const userInfo = {
+      username: 'admin',
+      id: Mock.Random.integer(10000, 99999)
+    };
     return {
       code: 200,
       data: {
-        token: Mock.Random.string('letter', 32), // 返回token
-        userInfo: {
-          username: 'admin',
-          id: Mock.Random.integer(10000, 99999)
-        }
+        token: makeToken(userInfo), // 返回简单 token
+        refresh_token: Mock.Random.string('letter', 32),
+        userInfo
       }
     };
   } else {
@@ -265,14 +317,36 @@ Mock.mock('/api/user/register', 'post', (options) => {
     if (username === 'exists') {
       return { code: 400, msg: '用户名已存在' };
     }
+    const userInfo = {
+      username,
+      id: Mock.Random.integer(10000, 99999)
+    };
     return {
       code: 200,
       data: {
-        token: Mock.Random.string('letter', 32),
-        userInfo: {
-          username,
-          id: Mock.Random.integer(10000, 99999)
-        }
+        token: makeToken(userInfo),
+        refresh_token: Mock.Random.string('letter', 32),
+        userInfo
+      }
+    };
+  } catch (e) {
+    return { code: 400, msg: '请求参数解析失败' };
+  }
+});
+
+// Mock 刷新 token 接口（用于前端 refresh 流程测试）
+Mock.mock('/api/auth/refresh', 'post', (options) => {
+  try {
+    const req = JSON.parse(options.body || '{}');
+    const refresh = req.refresh_token || '';
+    if (!refresh) return { code: 401, msg: 'refresh token missing' };
+    // 简单模拟：接受任意 refresh 返回新 token
+    const newToken = Mock.Random.string('letter', 32);
+    return {
+      code: 200,
+      data: {
+        access_token: newToken,
+        refresh_token: Mock.Random.string('letter', 32)
       }
     };
   } catch (e) {

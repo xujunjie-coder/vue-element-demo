@@ -31,19 +31,23 @@
               <el-form-item label="买入价格" prop="price">
                 <el-input
                   v-model="buyForm.price"
-                  type="number"
                   placeholder="默认最新价"
                   @blur="calcTotal('buy')"
-                ></el-input>
+                >
+                  <template slot="append">元</template>
+                </el-input>
               </el-form-item>
               <el-form-item label="买入数量" prop="amount">
-                <el-input
+                <el-input-number
                   v-model="buyForm.amount"
-                  type="number"
-                  placeholder="最少100股，整百股"
-                  @input="checkAmount('buy')"
-                  @blur="calcTotal('buy')"
-                ></el-input>
+                  :min="100"
+                  :step="100"
+                  :step-strictly="true"
+                  placeholder="最少100股"
+                  controls-position="right"
+                  style="width: 100%;"
+                  @change="calcTotal('buy')"
+                ></el-input-number>
                 <div class="form-tip">提示：委托数量需为100股的整数倍</div>
               </el-form-item>
               <el-form-item label="可用资金">
@@ -123,19 +127,24 @@
               <el-form-item label="卖出价格" prop="price">
                 <el-input
                   v-model="sellForm.price"
-                  type="number"
                   placeholder="默认最新价"
                   @blur="calcTotal('sell')"
-                ></el-input>
+                >
+                  <template slot="append">元</template>
+                </el-input>
               </el-form-item>
               <el-form-item label="卖出数量" prop="amount">
-                <el-input
+                <el-input-number
                   v-model="sellForm.amount"
-                  type="number"
+                  :min="100"
+                  :max="Number(sellForm.holdAmount) || Infinity"
+                  :step="100"
+                  :step-strictly="true"
                   placeholder="最多持仓数量"
-                  @input="checkAmount('sell')"
-                  @blur="calcTotal('sell')"
-                ></el-input>
+                  controls-position="right"
+                  style="width: 100%;"
+                  @change="calcTotal('sell')"
+                ></el-input-number>
                 <div class="form-tip">提示：委托数量需为100股的整数倍，不超过持仓数量</div>
               </el-form-item>
               <el-form-item label="预估手续费">
@@ -282,7 +291,6 @@
 import { mapState } from 'vuex';
 import request from '../../utils/request';
 import { getChangeClass, formatPrice } from '../../utils/format';
-import { getCache, setCache } from '../../utils/tool';
 
 export default {
   name: 'TradePanel',
@@ -295,7 +303,7 @@ export default {
         code: '',
         name: '',
         price: '',
-        amount: ''
+        amount: undefined
       },
       // 卖出表单
       sellForm: {
@@ -303,20 +311,24 @@ export default {
         name: '',
         holdAmount: '',
         price: '',
-        amount: ''
+        amount: undefined
       },
       // 买入表单校验规则
       buyRules: {
         code: [{ required: true, message: '请输入股票代码', trigger: 'blur' }, { len: 6, message: '股票代码为6位数字', trigger: 'blur' }],
         name: [{ required: true, message: '股票名称不能为空', trigger: 'blur' }],
-        price: [{ required: true, message: '请输入买入价格', trigger: 'blur' }, { type: 'number', min: 0.01, message: '价格不能小于0.01', trigger: 'blur' }],
-        amount: [{ required: true, message: '请输入买入数量', trigger: 'blur' }, { type: 'number', min: 100, message: '最少买入100股', trigger: 'blur' }]
+        price: [{ required: true, message: '请输入买入价格', trigger: 'blur' },
+                { validator: (r, v, cb) => { const n = Number(v); (!v && v !== 0) || isNaN(n) || n < 0.01 ? cb(new Error('价格不能小于0.01')) : cb(); }, trigger: 'blur' }],
+        amount: [{ required: true, message: '请输入买入数量', trigger: 'change' },
+                 { validator: (r, v, cb) => { const n = Number(v); !n || n < 100 ? cb(new Error('最少买入100股')) : n % 100 !== 0 ? cb(new Error('数量需为100的整数倍')) : cb(); }, trigger: 'change' }]
       },
       // 卖出表单校验规则
       sellRules: {
         code: [{ required: true, message: '请选择持仓股票', trigger: 'change' }],
-        price: [{ required: true, message: '请输入卖出价格', trigger: 'blur' }, { type: 'number', min: 0.01, message: '价格不能小于0.01', trigger: 'blur' }],
-        amount: [{ required: true, message: '请输入卖出数量', trigger: 'blur' }, { type: 'number', min: 100, message: '最少卖出100股', trigger: 'blur' }]
+        price: [{ required: true, message: '请输入卖出价格', trigger: 'blur' },
+                { validator: (r, v, cb) => { const n = Number(v); (!v && v !== 0) || isNaN(n) || n < 0.01 ? cb(new Error('价格不能小于0.01')) : cb(); }, trigger: 'blur' }],
+        amount: [{ required: true, message: '请输入卖出数量', trigger: 'change' },
+                 { validator: (r, v, cb) => { const n = Number(v); !n || n < 100 ? cb(new Error('最少卖出100股')) : n % 100 !== 0 ? cb(new Error('数量需为100的整数倍')) : cb(); }, trigger: 'change' }]
       },
       // 持仓列表
       holdList: [],
@@ -348,143 +360,172 @@ export default {
     }
   },
   mounted() {
-    // 首屏快速渲染：尝试使用缓存优先展示，然后并行请求最新数据
-    const cachedHold = getCache('holdList_cache');
-    const cachedOrder = getCache('orderList_cache');
-    if (cachedHold) {
-      this.holdList = cachedHold.map(item => ({
-        ...item,
-        cost: formatPrice(Number(item.cost) || 0),
-        price: formatPrice(Number(item.price) || 0),
-        profit: formatPrice(Number(item.profit) || 0),
-        profit_rate: formatPrice(Number(item.profit_rate) || 0),
-        hold: Number(item.hold) || 0
-      }));
-    }
-    if (cachedOrder) {
-      this.orderList = cachedOrder.map(item => ({
-        ...item,
-        price: formatPrice(item.price),
-        amount: item.amount,
-        create_time: item.create_time
-      }));
-    }
+    // ====== 前端模拟交易系统（后端无交易接口，全部使用 localStorage） ======
 
-    // 并行请求，不阻塞首屏
-    Promise.allSettled([this.fetchHoldList({ useCacheFallback: !!cachedHold }), this.fetchOrderList({ useCacheFallback: !!cachedOrder }), this.fetchUserInfo()]).catch((e) => {
-      console.warn('init data parallel load error', e);
-    });
+    // 初始化模拟资金（首次登录给 100 万）
+    if (!localStorage.getItem('sim_balance')) {
+      localStorage.setItem('sim_balance', '1000000');
+    }
+    this.userBalance = formatPrice(Number(localStorage.getItem('sim_balance')) || 1000000);
+
+    // 从 localStorage 读取持仓和委托单
+    try {
+      const savedHold = JSON.parse(localStorage.getItem('sim_hold_list') || '[]');
+      this.holdList = savedHold;
+    } catch (e) { this.holdList = []; }
+    try {
+      const savedOrders = JSON.parse(localStorage.getItem('sim_order_list') || '[]');
+      this.orderList = savedOrders;
+    } catch (e) { this.orderList = []; }
+
+    // 更新持仓的实时价格（并行查询，不阻塞）
+    this.refreshHoldPrices();
+
+    // 如果从其他页面带了股票代码过来，自动填写
+    if (this.$route.query.code) {
+      this.buyForm.code = this.$route.query.code;
+      this.buyForm.name = this.$route.query.name || '';
+      if (this.$route.query.price) {
+        this.buyForm.price = this.$route.query.price;
+      }
+      // 如果路由已带了名称，无需再请求后端；否则从行情缓存补全
+      if (!this.buyForm.name) {
+        this.getStockNameFromCache('buy');
+      }
+    }
   },
   methods: {
     getChangeClass,
-    // 获取持仓列表
-    async fetchHoldList(options = { useCacheFallback: true }) {
+
+    // ====== 持仓实时价格刷新（调用真实行情接口） ======
+    async refreshHoldPrices() {
+      if (!this.holdList.length) return;
       try {
-        const res = await request.getHoldList();
-        this.holdList = res.list.map(item => ({
-          ...item,
-          cost: formatPrice(Number(item.cost) || 0), // 避免非数字导致格式化失败
-          price: formatPrice(Number(item.price) || 0),
-          profit: formatPrice(Number(item.profit) || 0),
-          profit_rate: formatPrice(Number(item.profit_rate) || 0),
-          hold: Number(item.hold) || 0 // 确保持仓数量为数字
-        }));
-        // 缓存短期持仓数据，供首屏快速渲染
-        setCache('holdList_cache', res.list, 10);
-      } catch (err) {
-        console.error('fetchHoldList error:', err);
-        if (!options.useCacheFallback) {
-          this.$message.error('持仓数据加载失败');
-        }
+        const results = await request.getStockLastBatch(this.holdList.map(s => s.code));
+        results.forEach((d, i) => {
+          if (!d || !d.last) return;
+          const stock = this.holdList[i];
+          const currentPrice = Number(d.last);
+          const costNum = Number(stock.cost) || currentPrice;
+          const holdNum = Number(stock.hold) || 0;
+          const profit = (currentPrice - costNum) * holdNum;
+          const profitRate = costNum > 0 ? ((currentPrice - costNum) / costNum * 100) : 0;
+          this.$set(this.holdList, i, {
+            ...stock,
+            name: d.name || stock.name,
+            price: formatPrice(currentPrice),
+            profit: formatPrice(profit),
+            profit_rate: profitRate.toFixed(2)
+          });
+        });
+        this._saveHoldList();
+      } catch (e) {
+        console.warn('refreshHoldPrices error:', e);
       }
     },
-    // 股票联想搜索
+
+    // ====== localStorage 持久化 ======
+    _saveHoldList() {
+      localStorage.setItem('sim_hold_list', JSON.stringify(this.holdList));
+    },
+    _saveOrderList() {
+      localStorage.setItem('sim_order_list', JSON.stringify(this.orderList));
+    },
+    _saveBalance() {
+      localStorage.setItem('sim_balance', String(this._rawBalance()));
+    },
+    _rawBalance() {
+      return Number(String(this.userBalance).replace(/,/g, '')) || 0;
+    },
+
+    // ====== 股票搜索 ======
     async queryStock(queryString, callback) {
-      this.loading = true;
+      if (!queryString || queryString.length < 1) { callback([]); return; }
       try {
-        const res = await request.searchStock(queryString);
-        callback(res.map(item => ({
+        // 用 getSpot 缓存数据做前端搜索
+        const res = await request.getSpot('ShA');
+        const list = res.data || [];
+        const kw = queryString.toLowerCase();
+        const matched = list.filter(item =>
+          (item.code && item.code.toLowerCase().includes(kw)) ||
+          (item.name && item.name.includes(kw))
+        ).slice(0, 10);
+        callback(matched.map(item => ({
           value: item.code,
-          label: `${item.code} ${item.name}` // 显示格式：代码 名称
+          label: `${item.code} ${item.name}`
         })));
       } catch (err) {
         callback([]);
-      } finally {
-        this.loading = false;
       }
     },
     // 选择股票后自动填充名称和价格
     async handleStockSelect(item) {
-      this.buyForm.code = item.value; // 股票代码
+      this.buyForm.code = item.value;
       try {
-        const res = await request.getStockDetail(item.value);
-        this.buyForm.name = res.name;
-        this.buyForm.price = formatPrice(res.price);
-        this.calcTotal('buy');
-      } catch (err) {
-        console.error('handleStockSelect error:', err);
-        this.$message.warning('未查询到该股票详情');
-      }
-    },
-    // 获取委托单列表（对接Mock接口，替换硬编码）
-    async fetchOrderList(options = { useCacheFallback: true }) {
-      try {
-        const res = await request.getOrderList();
-        this.orderList = res.map(item => ({
-          ...item,
-          price: formatPrice(item.price),
-          amount: item.amount,
-          create_time: item.create_time
-        }));
-        setCache('orderList_cache', res, 10);
-      } catch (err) {
-        console.error('fetchOrderList error:', err);
-        if (!options.useCacheFallback) {
-          this.$message.error('委托单数据加载失败');
-          // 兜底：保留原硬编码数据
-          this.orderList = [
-            {
-              order_no: '20260125001',
-              code: '600519',
-              name: '贵州茅台',
-              direction: 'buy',
-              price: '1780.00',
-              amount: '100',
-              status: 'success',
-              create_time: '2026-01-25 10:30:25'
-            }
-          ];
+        const res = await request.getStockLast(item.value, { _silent: true });
+        const d = res.data || {};
+        if (d.name) {
+          this.buyForm.name = d.name;
+          this.buyForm.price = formatPrice(d.last);
+          this.calcTotal('buy');
         } else {
-          console.warn('fetchOrderList background update failed', err);
+          this.getStockNameFromCache('buy');
         }
-      }
-    },
-    // 获取用户信息（资金）
-    async fetchUserInfo() {
-      try {
-        const res = await request.getUserInfo();
-        this.userBalance = formatPrice(res.balance);
       } catch (err) {
-        console.error('fetchUserInfo error:', err);
-        this.$message.error('用户信息加载失败');
+        // 静默回退到缓存
+        this.getStockNameFromCache('buy');
       }
     },
-    // 买入时获取股票名称
+    // 获取用户信息（前端模拟，不调后端）
+    fetchUserInfo() {
+      this.userBalance = formatPrice(Number(localStorage.getItem('sim_balance')) || 1000000);
+    },
+    // 买入时获取股票名称（在线查询）
     async getStockName(type) {
       const code = type === 'buy' ? this.buyForm.code : this.sellForm.code;
       if (!code || code.length !== 6) return;
       try {
-        const res = await request.getStockDetail(code);
-        if (type === 'buy') {
-          this.buyForm.name = res.name;
-          this.buyForm.price = formatPrice(res.price);
+        const res = await request.getStockLast(code, { _silent: true });
+        const d = res.data || {};
+        if (d.name) {
+          if (type === 'buy') {
+            this.buyForm.name = d.name;
+            this.buyForm.price = formatPrice(d.last);
+          } else {
+            this.sellForm.name = d.name;
+            this.sellForm.price = formatPrice(d.last);
+          }
+          this.calcTotal(type);
         } else {
-          this.sellForm.name = res.name;
-          this.sellForm.price = formatPrice(res.price);
+          // 在线查询没返回有效数据，尝试从缓存补全
+          this.getStockNameFromCache(type);
         }
-        this.calcTotal(type);
       } catch (err) {
-        this.$message.warning('未查询到该股票信息');
+        // 接口失败时静默回退到缓存查询，不弹错误提示
+        console.warn('getStockName fallback to cache:', err.message);
+        this.getStockNameFromCache(type);
+      }
+    },
+    // 从行情缓存中查找股票名称和价格（无需后端接口）
+    async getStockNameFromCache(type) {
+      const code = type === 'buy' ? this.buyForm.code : this.sellForm.code;
+      if (!code) return;
+      try {
+        const res = await request.getSpot('ShA');
+        const list = res.data || [];
+        const found = list.find(item => item.code === code || item.code === code.replace(/^(sh|sz|bj)/i, ''));
+        if (found) {
+          if (type === 'buy') {
+            if (!this.buyForm.name) this.buyForm.name = found.name;
+            if (!this.buyForm.price) this.buyForm.price = formatPrice(found.last);
+          } else {
+            if (!this.sellForm.name) this.sellForm.name = found.name;
+            if (!this.sellForm.price) this.sellForm.price = formatPrice(found.last);
+          }
+          this.calcTotal(type);
+        }
+      } catch (e) {
+        console.warn('getStockNameFromCache error:', e.message);
       }
     },
     // 卖出时获取股票信息
@@ -518,52 +559,120 @@ export default {
         this.sellTotal = formatPrice(price * amount - Number(this.sellFee));
       }
     },
-    // 提交委托
+    // 提交委托（前端模拟交易）
     async submitTrade(type) {
       const formRef = type === 'buy' ? this.$refs.buyFormRef : this.$refs.sellFormRef;
       formRef.validate(async (valid) => {
         if (valid) {
-          const isAmountValid = type === 'buy' ? this.buyForm.amount % 100 === 0 : this.sellForm.amount % 100 === 0;
-          if (!isAmountValid) {
+          const form = type === 'buy' ? this.buyForm : this.sellForm;
+          const amount = Number(form.amount);
+          const price = Number(form.price);
+
+          if (!amount || amount % 100 !== 0) {
             this.$message.warning('委托数量需为100股的整数倍');
             return;
           }
 
-          const isFundValid = type === 'buy' ? Number(this.buyTotal) <= Number(this.userBalance) : Number(this.sellForm.amount) <= Number(this.sellForm.holdAmount);
-          if (!isFundValid) {
-            this.$message.warning(type === 'buy' ? '资金不足，无法委托' : '卖出数量不能超过持仓数量');
-            return;
+          const totalCost = price * amount;
+          const fee = Math.max(totalCost * 0.0005, 5); // 佣金最低5元
+          const balance = this._rawBalance();
+
+          if (type === 'buy') {
+            // 资金检查
+            if (totalCost + fee > balance) {
+              this.$message.warning('资金不足，无法委托');
+              return;
+            }
+
+            // 扣除资金
+            const newBalance = balance - totalCost - fee;
+            this.userBalance = formatPrice(newBalance);
+            this._saveBalance();
+
+            // 更新持仓（合并同股票）
+            const existIdx = this.holdList.findIndex(s => s.code === form.code);
+            if (existIdx >= 0) {
+              const old = this.holdList[existIdx];
+              const oldHold = Number(old.hold) || 0;
+              const oldCost = Number(old.cost) || price;
+              const newHold = oldHold + amount;
+              const newCost = ((oldCost * oldHold) + (price * amount)) / newHold;
+              this.$set(this.holdList, existIdx, {
+                ...old,
+                hold: newHold,
+                cost: formatPrice(newCost),
+                price: formatPrice(price),
+                profit: formatPrice((price - newCost) * newHold),
+                profit_rate: (newCost > 0 ? ((price - newCost) / newCost * 100) : 0).toFixed(2)
+              });
+            } else {
+              this.holdList.push({
+                code: form.code,
+                name: form.name,
+                hold: amount,
+                cost: formatPrice(price),
+                price: formatPrice(price),
+                profit: '0.00',
+                profit_rate: '0.00'
+              });
+            }
+            this._saveHoldList();
+
+          } else {
+            // 卖出：检查持仓
+            const existIdx = this.holdList.findIndex(s => s.code === form.code);
+            if (existIdx < 0 || Number(this.holdList[existIdx].hold) < amount) {
+              this.$message.warning('持仓不足');
+              return;
+            }
+
+            // 增加资金（扣除卖出费用：佣金+印花税）
+            const stampTax = totalCost * 0.001; // 印花税千分之一
+            const newBalance = balance + totalCost - fee - stampTax;
+            this.userBalance = formatPrice(newBalance);
+            this._saveBalance();
+
+            // 减少持仓
+            const old = this.holdList[existIdx];
+            const remainHold = Number(old.hold) - amount;
+            if (remainHold <= 0) {
+              this.holdList.splice(existIdx, 1);
+            } else {
+              this.$set(this.holdList, existIdx, { ...old, hold: remainHold });
+            }
+            this._saveHoldList();
           }
 
-          try {
-            const params = type === 'buy' ? {
-              code: this.buyForm.code,
-              direction: 'buy',
-              price: this.buyForm.price,
-              amount: this.buyForm.amount
-            } : {
-              code: this.sellForm.code,
-              direction: 'sell',
-              price: this.sellForm.price,
-              amount: this.sellForm.amount
-            };
+          // 生成委托单号
+          const now = new Date();
+          const orderNo = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+          const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
-            const res = await request.submitTradeOrder(params);
-            this.$message.success(`${type === 'buy' ? '买入' : '卖出'}委托提交成功，委托单号：${res.order_no}`);
-            
-            // 重置表单
-            type === 'buy' ? this.$refs.buyFormRef.resetFields() : this.$refs.sellFormRef.resetFields();
-            this.buyFee = '0.00';
-            this.buyTotal = '0.00';
-            this.sellFee = '0.00';
-            this.sellTotal = '0.00';
+          // 添加委托单记录
+          this.orderList.unshift({
+            order_no: orderNo,
+            code: form.code,
+            name: form.name,
+            direction: type,
+            price: formatPrice(price),
+            amount: amount,
+            status: 'success',
+            create_time: timeStr
+          });
+          this._saveOrderList();
 
-            // 并行刷新持仓、委托单和用户信息
-            Promise.allSettled([this.fetchHoldList(), this.fetchOrderList(), this.fetchUserInfo()]).catch(e => console.warn('refresh after submit failed', e));
-          } catch (err) {
-            console.error('submitTrade error:', err);
-            this.$message.error('委托提交失败，请稍后重试');
+          this.$message.success(`${type === 'buy' ? '买入' : '卖出'}委托成功，委托单号：${orderNo}`);
+
+          // 重置表单
+          if (type === 'buy') {
+            this.$refs.buyFormRef.resetFields();
+          } else {
+            this.$refs.sellFormRef.resetFields();
           }
+          this.buyFee = '0.00';
+          this.buyTotal = '0.00';
+          this.sellFee = '0.00';
+          this.sellTotal = '0.00';
         }
       });
     },
@@ -582,10 +691,10 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        // 模拟撤销成功
         this.orderList = this.orderList.map(item => 
           item.order_no === order.order_no ? { ...item, status: 'canceled' } : item
         );
+        this._saveOrderList();
         this.$message.success('委托单撤销成功');
       }).catch(() => {
         this.$message.info('已取消撤销');
@@ -612,6 +721,10 @@ export default {
   font-size: 12px;
   color: #999;
   margin-top: 5px;
+}
+/* 数量输入框数字左对齐 */
+::v-deep .el-input-number .el-input__inner {
+  text-align: left;
 }
 .hold-list, .order-list {
   padding: 10px;
