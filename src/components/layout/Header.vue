@@ -40,6 +40,7 @@
 
       <!-- 移动端菜单按钮 -->
       <el-button
+        v-if="$route.path !== '/mine'"
         icon="el-icon-menu"
         type="text"
         class="mobile-menu-btn hide-on-pc"
@@ -70,27 +71,17 @@
       </div>
     </div>
 
-    <!-- 移动端抽屉 -->
-    <Drawer
-      ref="mobileDrawer"
-      :visible="drawerVisible"
-      @close="drawerVisible = false"
-      :is-login="isLogin" 
-    />
   </el-header>
 </template>
 
 <script>
 import { mapState, mapActions } from 'vuex';
-import Drawer from '../common/Drawer.vue';
 
 export default {
   name: 'Header',
-  components: { Drawer },
   data() {
     return {
-      activeMenu: '1',
-      drawerVisible: false
+      activeMenu: '1'
     };
   },
   computed: {
@@ -184,9 +175,9 @@ export default {
       if (path === '/mine') this.activeMenu = '5';
     },
 
-    // 打开移动端抽屉
+    // 打开左侧边栏抽屉（≤1090px 时使用）
     openDrawer() {
-      this.drawerVisible = true;
+      this.$root.$emit('toggle-left-drawer');
     },
     // 跳转登录页
     toLogin() {

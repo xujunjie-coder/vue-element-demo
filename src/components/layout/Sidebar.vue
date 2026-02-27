@@ -5,6 +5,39 @@
     class="sidebar" 
     style="background: #fff; border-right: 1px solid var(--color-border); height: calc(100vh - 60px); overflow-y: auto; float: left;"
   >
+    <!-- 0. 导航菜单（仅在抽屉模式 ≤1090px 显示） -->
+    <div class="sidebar-module sidebar-drawer-nav">
+      <div class="module-header">
+        <h3 class="module-title">功能导航</h3>
+      </div>
+      <el-menu
+        :default-active="activeNavIndex"
+        class="sidebar-nav-menu"
+        @select="handleNavSelect"
+      >
+        <el-menu-item index="nav-1">
+          <i class="el-icon-menu"></i>
+          <span slot="title">行情首页</span>
+        </el-menu-item>
+        <el-menu-item index="nav-2">
+          <i class="el-icon-s-data"></i>
+          <span slot="title">个股详情</span>
+        </el-menu-item>
+        <el-menu-item index="nav-3">
+          <i class="el-icon-magic-stick"></i>
+          <span slot="title">AI智能选股</span>
+        </el-menu-item>
+        <el-menu-item index="nav-4" :disabled="!isLogin">
+          <i class="el-icon-sell"></i>
+          <span slot="title">交易模拟</span>
+        </el-menu-item>
+        <el-menu-item index="nav-5" :disabled="!isLogin">
+          <i class="el-icon-user"></i>
+          <span slot="title">个人中心</span>
+        </el-menu-item>
+      </el-menu>
+    </div>
+
     <!-- 1. 自选股模块（核心功能：列表+批量操作） -->
     <div class="sidebar-module">
       <div class="module-header">
@@ -37,7 +70,8 @@
           v-for="stock in optionalStocks || []"
           :key="stock?.code"  
           class="stock-item"
-          :class="{ 'active': stock?.code === currentStockCode }"
+          :class="{ 'active': stock?.code === currentStockCode, 'stock-flash': stock?.code === flashingCode }"
+          :data-code="stock?.code"
           @click="goStockDetail(stock)"
         >
           <el-checkbox
@@ -162,7 +196,7 @@
     <!-- ========== 实用工具弹窗 ========== -->
 
     <!-- 1. 市盈率计算器 -->
-    <el-dialog title="市盈率计算器" :visible.sync="showPETool" width="420px" append-to-body>
+    <el-dialog title="市盈率计算器" :visible.sync="showPETool" width="420px" append-to-body :close-on-click-modal="false">
       <el-form label-width="90px" size="small">
         <el-form-item label="股票代码">
           <el-input v-model="peForm.code" placeholder="输入6位代码" maxlength="6">
@@ -187,7 +221,7 @@
     </el-dialog>
 
     <!-- 2. 交易税费计算 -->
-    <el-dialog title="交易税费计算" :visible.sync="showTaxTool" width="450px" append-to-body>
+    <el-dialog title="交易税费计算" :visible.sync="showTaxTool" width="450px" append-to-body :close-on-click-modal="false">
       <el-form label-width="90px" size="small">
         <el-form-item label="股票代码">
           <el-input v-model="taxForm.code" placeholder="输入6位代码自动填充价格" maxlength="6">
@@ -236,7 +270,7 @@
     </el-dialog>
 
     <!-- 3. 均线分析工具 -->
-    <el-dialog title="均线分析工具" :visible.sync="showMATool" width="560px" append-to-body>
+    <el-dialog title="均线分析工具" :visible.sync="showMATool" width="560px" append-to-body :close-on-click-modal="false">
       <el-form :inline="true" size="small" style="margin-bottom:10px">
         <el-form-item label="股票代码">
           <el-input v-model="maForm.code" placeholder="6位代码" maxlength="6" style="width:120px"></el-input>
@@ -267,7 +301,7 @@
     </el-dialog>
 
     <!-- 4. 财报对比分析 -->
-    <el-dialog title="财报对比分析" :visible.sync="showReportTool" width="580px" append-to-body>
+    <el-dialog title="财报对比分析" :visible.sync="showReportTool" width="580px" append-to-body :close-on-click-modal="false">
       <el-form :inline="true" size="small" style="margin-bottom:10px">
         <el-form-item label="股票A">
           <el-input v-model="reportForm.codeA" placeholder="代码" maxlength="6" style="width:110px"></el-input>
@@ -295,7 +329,7 @@
     </el-dialog>
 
     <!-- 5. 风险测评工具 -->
-    <el-dialog title="风险测评工具" :visible.sync="showRiskTool" width="480px" append-to-body>
+    <el-dialog title="风险测评工具" :visible.sync="showRiskTool" width="480px" append-to-body :close-on-click-modal="false">
       <div v-if="!riskResult">
         <p style="margin-bottom:15px;color:#666;font-size:13px">通过以下问题评估您的投资风险承受能力</p>
         <el-form label-position="top" size="small">
@@ -345,7 +379,7 @@
     </el-dialog>
 
     <!-- 6. 投资组合管理 -->
-    <el-dialog title="投资组合管理" :visible.sync="showPortfolioTool" width="560px" append-to-body>
+    <el-dialog title="投资组合管理" :visible.sync="showPortfolioTool" width="560px" append-to-body :close-on-click-modal="false">
       <el-form :inline="true" size="small" style="margin-bottom:10px">
         <el-form-item label="股票代码">
           <el-input v-model="portfolioForm.code" placeholder="6位代码" maxlength="6" style="width:110px"></el-input>
@@ -396,7 +430,7 @@
     </el-dialog>
 
     <!-- 7. 止损止盈计算器 -->
-    <el-dialog title="止损止盈计算器" :visible.sync="showStopTool" width="420px" append-to-body>
+    <el-dialog title="止损止盈计算器" :visible.sync="showStopTool" width="420px" append-to-body :close-on-click-modal="false">
       <el-form label-width="90px" size="small">
         <el-form-item label="股票代码">
           <el-input v-model="stopForm.code" placeholder="输入6位代码" maxlength="6">
@@ -426,7 +460,7 @@
     </el-dialog>
 
     <!-- 8. 委托单模拟 -->
-    <el-dialog title="委托单模拟" :visible.sync="showOrderTool" width="450px" append-to-body>
+    <el-dialog title="委托单模拟" :visible.sync="showOrderTool" width="450px" append-to-body :close-on-click-modal="false">
       <el-form label-width="90px" size="small">
         <el-form-item label="股票代码">
           <el-input v-model="orderForm.code" placeholder="6位代码" maxlength="6">
@@ -574,7 +608,9 @@ export default {
       stopForm: { code: '', name: '', buyPrice: '', currentPrice: '', stopLossRate: 10, takeProfitRate: 20, loading: false },
       // 8. 委托单模拟
       orderForm: { code: '', name: '', currentPrice: '', direction: 'buy', price: '', count: '', loading: false },
-      simOrders: []
+      simOrders: [],
+      // 闪光提示的自选股代码
+      flashingCode: ''
     };
   },
   // 这里是mounted生命周期，组件加载完成后执行
@@ -591,19 +627,33 @@ export default {
     this.statTimer = setInterval(() => {
       this.fetchStatistics();
     }, 120000);
+    // 5. 监听自选股闪光提示事件
+    this.$root.$on('flash-optional-stock', this.handleFlashStock);
   },
   // 组件销毁前，清除定时器（避免内存泄漏）
   beforeDestroy() {
     clearInterval(this.syncTimer);
     clearInterval(this.statTimer);
+    this.$root.$off('flash-optional-stock', this.handleFlashStock);
   },
   computed: {
     // 从Vuex获取数据时加空值兜底，核心修复点！
     ...mapState({
       optionalStocks: state => state.optionalStocks || [],
-      currentStockCode: state => state.currentStockCode || ''
+      currentStockCode: state => state.currentStockCode || '',
+      isLogin: state => state.isLogin || false
     }),
     ...mapGetters(['optionalStockCount']),
+    // 抽屉导航菜单激活索引
+    activeNavIndex() {
+      const path = this.$route.path;
+      if (path === '/quote') return 'nav-1';
+      if (path.includes('/detail')) return 'nav-2';
+      if (path === '/ai/select') return 'nav-3';
+      if (path === '/trade') return 'nav-4';
+      if (path === '/mine') return 'nav-5';
+      return 'nav-1';
+    },
     // 计算涨跌停比例：加空值判断避免 NaN
     limitRatio() {
       const total = this.upCount + this.downCount + this.flatCount;
@@ -697,6 +747,42 @@ export default {
     ...mapActions(['addOptionalStock', 'deleteOptionalStock', 'changeStock','batchDeleteOptionalStock']),
     getChangeClass,
     stripStockPrefix,
+
+    // 抽屉导航菜单选择处理
+    handleNavSelect(index) {
+      let path = '';
+      switch (index) {
+        case 'nav-1': path = '/quote'; break;
+        case 'nav-2':
+          if (!this.currentStockCode) {
+            this.$message.warning('请先选择股票');
+            return;
+          }
+          path = `/detail/${this.currentStockCode}`;
+          break;
+        case 'nav-3': path = '/ai/select'; break;
+        case 'nav-4':
+          if (!this.isLogin) {
+            this.$message.warning('请先登录后再操作');
+            this.$router.push('/login');
+            return;
+          }
+          path = '/trade';
+          break;
+        case 'nav-5':
+          if (!this.isLogin) {
+            this.$message.warning('请先登录后再操作');
+            this.$router.push('/login');
+            return;
+          }
+          path = '/mine';
+          break;
+        default: path = '/quote';
+      }
+      if (this.$route.path !== path) {
+        this.$router.push(path);
+      }
+    },
 
     // 跳转到个股详情页：加空值判断
     goStockDetail(stock) {
@@ -859,7 +945,7 @@ export default {
       if (key) this[key] = true;
     },
 
-    // =========== 通用：查询股票（getStockLast 失败时从 spot 缓存兜底） ===========
+    // =========== 通用：查询股票（getStockLast 失败时用 /spot/search 兜底） ===========
     async _queryStock(code) {
       // 1. 先尝试 /stock_last 接口
       try {
@@ -867,16 +953,16 @@ export default {
         const d = res.data || {};
         if (d.name && d.last) return d;
       } catch { /* 忽略，走兜底 */ }
-      // 2. 兜底：从 getSpot 缓存中查找
+      // 2. 兜底：使用 /spot/search 搜索
       try {
-        const spotRes = await request.getSpot('ShA');
-        const list = spotRes.data || [];
         const pure = String(code).replace(/^(sh|sz|bj)/i, '');
-        const found = list.find(s =>
-          s.code === code || s.code === pure ||
-          s.code === ('sh' + pure) || s.code === ('sz' + pure)
-        );
-        if (found) return found;
+        const searchRes = await request.searchStock(pure, 5);
+        const list = searchRes.data || [];
+        const found = list.find(s => s.code === pure);
+        if (found) {
+          // 搜索接口只返回 code/name，补充 last 字段
+          return { code: found.code, name: found.name, last: 0, close: 0 };
+        }
       } catch { /* ignore */ }
       return null;
     },
@@ -1144,6 +1230,22 @@ export default {
       this.$message.success(`模拟${direction === 'buy' ? '买入' : '卖出'} ${name || code} ${numCount}股 成功`);
     },
     // 3. 关键：将 syncOptionalStockData 移到 methods 里（改为并行批量查询）
+    // 自选股闪光提示
+    handleFlashStock(code) {
+      // 先清除，再通过 nextTick 重新赋值，强制 CSS 动画重新触发
+      this.flashingCode = '';
+      clearTimeout(this._flashTimer);
+      this.$nextTick(() => {
+        this.flashingCode = code;
+        // 滚动到对应位置
+        this.$nextTick(() => {
+          const el = this.$el.querySelector(`.stock-item[data-code="${code}"]`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      });
+      // 动画结束后取消闪光（4次 × 0.5s = 2s，多留 0.5s 缓冲）
+      this._flashTimer = setTimeout(() => { this.flashingCode = ''; }, 2500);
+    },
     async syncOptionalStockData() {
       if (this.optionalStocks.length === 0) return;
       try {
@@ -1160,16 +1262,20 @@ export default {
             change: (Number(d.last) - Number(d.close)).toFixed(2) || stock.change
           });
         });
-        localStorage.setItem('optional_stocks', JSON.stringify(this.optionalStocks));
+        // 按用户名隔离保存自选股
+        const username = this.$store.state.userInfo && this.$store.state.userInfo.username;
+        const key = username ? `optional_stocks_${username}` : 'optional_stocks';
+        localStorage.setItem(key, JSON.stringify(this.optionalStocks));
       } catch (err) {
         console.warn('自选股实时数据同步失败：', err);
       }
     },
-    // 从 getSpot 缓存数据计算行情统计（复用已有缓存，不会重复发请求）
+    // 从 /spot/sina 数据计算行情统计（复用已有缓存）
     async fetchStatistics() {
       try {
         const res = await request.getSpot('ShA');
         const list = res.data || [];
+        if (list.length === 0) return;
         let up = 0, down = 0, flat = 0, limitUp = 0, limitDown = 0;
         list.forEach(item => {
           const zd = Number(item.zd) || 0;
@@ -1179,11 +1285,14 @@ export default {
           if (zd >= 9.9) limitUp++;
           if (zd <= -9.9) limitDown++;
         });
-        this.upCount = up;
-        this.downCount = down;
-        this.flatCount = flat;
-        this.limitUpCount = limitUp;
-        this.limitDownCount = limitDown;
+        // 根据样本比例估算全市场数据（/spot/sina 最多返回 100 条）
+        const total = 2300; // 沼A股约 2300 只
+        const ratio = total / (list.length || 1);
+        this.upCount = Math.round(up * ratio);
+        this.downCount = Math.round(down * ratio);
+        this.flatCount = Math.round(flat * ratio);
+        this.limitUpCount = Math.round(limitUp * ratio);
+        this.limitDownCount = Math.round(limitDown * ratio);
       } catch (e) {
         console.warn('fetchStatistics error:', e);
       }
@@ -1258,6 +1367,11 @@ export default {
   border-bottom: 1px solid #f5f5f5;
   cursor: pointer;
   transition: background-color 0.2s;
+}
+
+/* 自选股闪光提示动画 — class 仅设置动画引用，@keyframes 定义在非 scoped 样式中 */
+.stock-flash {
+  animation: stockFlashAnim 0.5s ease-in-out 4;
 }
 
 .stock-item >>> .el-checkbox {
@@ -1464,5 +1578,29 @@ export default {
   font-size: 16px;
   color: #999;
   font-weight: normal;
+}
+
+/* 抽屉模式导航菜单 */
+.sidebar-drawer-nav {
+  border-bottom: 1px solid var(--color-border, #e5e6eb);
+}
+.sidebar-nav-menu {
+  border-right: none !important;
+}
+.sidebar-nav-menu .el-menu-item {
+  height: 44px;
+  line-height: 44px;
+  font-size: 14px;
+}
+.sidebar-nav-menu .el-menu-item i {
+  margin-right: 8px;
+}
+</style>
+
+<!-- 非 scoped：@keyframes 必须在全局作用域才能在 Vue 2 中正常工作 -->
+<style>
+@keyframes stockFlashAnim {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(64, 158, 255, 0.25); box-shadow: 0 0 8px rgba(64, 158, 255, 0.4); }
 }
 </style>

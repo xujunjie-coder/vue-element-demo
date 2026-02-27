@@ -4,7 +4,7 @@
     <div class="card-container stock-header">
       <div class="stock-basic">
         <h2 class="stock-name">
-          {{ stockDetail.name }} ({{ stockDetail.code }})
+          {{ stockDetail.name }} ({{ stripPrefix(stockDetail.code) }})
           <el-tag size="mini" :class="getChangeClass(stockDetail.change)">{{ stockDetail.change_rate }}%</el-tag>
         </h2>
         <div class="stock-price">
@@ -23,9 +23,9 @@
         </div>
       </div>
       <div class="stock-actions">
-        <el-button type="primary" @click="addToOptional">加入自选</el-button>
-        <el-button type="success" @click="toTrade">交易操作</el-button>
-        <el-button type="text" @click="refreshDetail">刷新数据</el-button>
+        <el-button type="primary" size="small" @click="addToOptional">加入自选</el-button>
+        <el-button type="success" size="small" @click="toTrade">交易操作</el-button>
+        <el-button type="warning" size="small" icon="el-icon-refresh" @click="refreshDetail">刷新数据</el-button>
       </div>
     </div>
 
@@ -61,13 +61,6 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="change" label="变动" width="100">
-          <template slot-scope="scope">
-            <span :class="scope.row.change > 0 ? 'text-up' : scope.row.change < 0 ? 'text-down' : ''">
-              {{ scope.row.change > 0 ? '+' : '' }}{{ scope.row.change }}%
-            </span>
-          </template>
-        </el-table-column>
         <el-table-column prop="description" label="指标说明" />
       </el-table>
     </div>
@@ -78,6 +71,7 @@
 import { mapActions,mapState } from 'vuex';
 import * as echarts from 'echarts';
 import request from '../../utils/request';
+import { stripStockPrefix } from '../../utils/request';
 import AIPrediction from '../ai/AIPrediction.vue';
 import { getChangeClass, formatPrice, formatVolume } from '../../utils/format';
 
@@ -106,14 +100,11 @@ export default {
       klineChartInstance: null,
       // 财务数据
       financeList: [
-        { name: '市盈率', latest: '28.5', change: 2.3, description: '当前股价相对每股收益的倍数' },
-        { name: '市净率', latest: '5.2', change: -1.1, description: '当前股价相对每股净资产的倍数' },
-        { name: '毛利率', latest: '91.3%', change: 0.5, description: '毛利润占营业收入的百分比' },
-        { name: '净利润率', latest: '51.8%', change: 1.2, description: '净利润占营业收入的百分比' },
-        { name: '营收增长率', latest: '15.7%', change: 3.1, description: '营业收入同比增长幅度' },
-        { name: '净利润增长率', latest: '18.2%', change: 2.8, description: '净利润同比增长幅度' },
-        { name: '资产负债率', latest: '15.3%', change: -0.8, description: '负债总额占资产总额的百分比' },
-        { name: 'ROE', latest: '29.7%', change: 1.5, description: '净资产收益率' }
+        { name: '市盈率(PE)', latest: '--', change: 0, description: '当前股价相对每股收益的倍数' },
+        { name: '市净率(PB)', latest: '--', change: 0, description: '当前股价相对每股净资产的倍数' },
+        { name: '总市值', latest: '--', change: 0, description: '股价 × 总股本，单位：万元' },
+        { name: '流通市值', latest: '--', change: 0, description: '股价 × 流通股本，单位：万元' },
+        { name: '换手率', latest: '--', change: 0, description: '成交量占流通股本的百分比' }
       ],
       loading: false,
       // 色彩常量（严格遵循PDF设计规范）
@@ -153,6 +144,7 @@ export default {
   methods: {
     ...mapActions(['addOptionalStock']),
     getChangeClass,
+    stripPrefix: stripStockPrefix,
 
     // 处理窗口resize事件（单独定义便于销毁）
     handleResize() {
@@ -189,13 +181,58 @@ export default {
           klineData: []
         };
 
-        // 2. 获取K线数据（天级）
+        // 2. 获取K线数据和财务指标（并行，互不阻塞）
+        this.fetchFinanceData(d);
         await this.fetchKlineData();
       } catch (err) {
         this.$message.error('股票详情加载失败');
         console.error('fetchStockDetail error:', err);
       } finally {
         this.loading = false;
+      }
+    },
+
+    // 异步获取财务指标（不阻塞主流程）
+    async fetchFinanceData(stockData) {
+      try {
+        const pureCode = String(stockData.code || this.currentCode).replace(/^(sh|sz|bj)/i, '');
+        // 先查第1页拿到总页数
+        const firstRes = await request.getSpotSina({ stock_type: 'ShA', page: 1, size: 100 });
+        const firstData = firstRes.data || {};
+        const totalPages = firstData.pages || 1;
+        let spotItem = (firstData.list || []).find(s => s.code === pureCode);
+
+        // 第1页没找到，并行请求剩余页查找
+        if (!spotItem && totalPages > 1) {
+          const promises = [];
+          for (let p = 2; p <= totalPages; p++) {
+            promises.push(
+              request.getSpotSina({ stock_type: 'ShA', page: p, size: 100 })
+                .then(r => (r.data && r.data.list) || [])
+                .catch(() => [])
+            );
+          }
+          const results = await Promise.all(promises);
+          for (const list of results) {
+            spotItem = list.find(s => s.code === pureCode);
+            if (spotItem) break;
+          }
+        }
+
+        if (spotItem) {
+          const per = Number(spotItem.per);
+          const pbr = Number(spotItem.pbr);
+          const tmc = Number(spotItem.tmc);
+          const ffmcap = Number(spotItem.ffmcap);
+          const hsr = Number(spotItem.hsr);
+          if (per) this.$set(this.financeList, 0, { ...this.financeList[0], latest: per.toFixed(2) });
+          if (pbr) this.$set(this.financeList, 1, { ...this.financeList[1], latest: pbr.toFixed(2) });
+          if (tmc) this.$set(this.financeList, 2, { ...this.financeList[2], latest: (tmc / 10000).toFixed(2) + '万' });
+          if (ffmcap) this.$set(this.financeList, 3, { ...this.financeList[3], latest: (ffmcap / 10000).toFixed(2) + '万' });
+          if (hsr) this.$set(this.financeList, 4, { ...this.financeList[4], latest: hsr.toFixed(2) + '%' });
+        }
+      } catch (e) {
+        console.warn('获取财务指标失败:', e.message);
       }
     },
 
@@ -460,10 +497,18 @@ export default {
       this.$message.success('数据已刷新');
     },
 
-    // 加入自选股
+    // 加入自选股（去重判断 + 闪光提示）
     addToOptional() {
+      const code = this.stockDetail.code;
+      const existing = this.$store.state.optionalStocks.find(s => s.code === code);
+      if (existing) {
+        this.$message.warning(`${this.stockDetail.name} 已在自选股中`);
+        // 触发侧边栏闪光动画
+        this.$root.$emit('flash-optional-stock', code);
+        return;
+      }
       this.addOptionalStock({
-        code: this.stockDetail.code,
+        code: code,
         name: this.stockDetail.name,
         price: this.stockDetail.price,
         change: this.stockDetail.change
@@ -476,7 +521,7 @@ export default {
       this.$router.push({
         path: '/trade',
         query: { 
-          code: this.stockDetail.code, 
+          code: this.stripPrefix(this.stockDetail.code), 
           name: this.stockDetail.name,
           price: this.stockDetail.price
         }
@@ -545,6 +590,9 @@ export default {
   gap: 10px;
   margin-top: 10px;
   flex-shrink: 0;
+}
+.stock-actions .el-button {
+  min-width: 100px;
 }
 
 /* K线图样式 */

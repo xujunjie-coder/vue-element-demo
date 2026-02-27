@@ -1,3 +1,7 @@
+/* ============================================================
+   全局基础样式 — 重置 / 变量 / 通用类
+   ============================================================ */
+
 /* 全局重置 */
 * {
   margin: 0;
@@ -9,36 +13,57 @@ html, body, #app {
   font-family: "Microsoft YaHei", sans-serif;
 }
 
-/* 全局变量 */
+/* 全局 CSS 变量（唯一来源） */
 :root {
+  /* 色彩 */
   --color-up: #e53935;
   --color-down: #2f9b56;
   --color-neutral: #666;
-  --color-bg: #f8f8f8;
-  --color-border: #e6e6e6;
+  --color-bg: #f5f7fa;
+  --color-border: #e5e6eb;
   --color-card-bg: #fff;
+  /* 字号 */
   --font-size-pc: 14px;
   --font-size-tablet: 13px;
   --font-size-mobile: 12px;
+  --font-size-base: var(--font-size-pc);
+  /* 间距 */
   --spacing-pc: 20px;
+  --spacing-tablet: 12px;
   --spacing-mobile: 10px;
+  --spacing-base: var(--spacing-pc);
+  /* 圆角 */
   --border-radius-pc: 4px;
   --border-radius-mobile: 6px;
+  --border-radius-base: var(--border-radius-pc);
+  /* 布局 */
+  --sidebar-width: 240px;
+  --right-aside-width: 220px;
+  /* 不换行工具类 */
+  .no-break {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  --header-height: 60px;
+  --footer-height: auto;
 }
 
-/* 通用样式 */
+/* 通用卡片 */
 .card-container {
   background: var(--color-card-bg);
-  border-radius: var(--border-radius-pc);
+  border-radius: var(--border-radius-base);
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
   padding: 15px;
   margin-bottom: 10px;
 }
+/* 通用按钮 */
 .btn-primary {
   background-color: var(--color-up);
   color: #fff;
   border: none;
-  border-radius: var(--border-radius-pc);
+  border-radius: var(--border-radius-base);
   padding: 6px 12px;
   cursor: pointer;
   font-size: 14px;
@@ -47,7 +72,7 @@ html, body, #app {
   background-color: var(--color-down);
   color: #fff;
   border: none;
-  border-radius: var(--border-radius-pc);
+  border-radius: var(--border-radius-base);
   padding: 6px 12px;
   cursor: pointer;
   font-size: 14px;
@@ -61,16 +86,20 @@ html, body, #app {
   color: var(--color-down) !important;
   font-weight: bold;
 }
+
 .text-neutral {
   color: var(--color-neutral) !important;
+  font-weight: bold;
 }
-/* 隐藏类 */
-.hide-on-mobile {
-  display: block;
-}
-.hide-on-pc {
-  display: none;
-}
+
+/* 响应式显隐类（默认 PC 状态，媒体查询覆盖见 media.css） */
+.hide-on-mobile  { display: block !important; }
+.hide-on-pc      { display: none  !important; }
+.hide-on-tablet  { display: block !important; }
+
+/* 侧栏抽屉导航（默认隐藏，仅在抽屉模式 ≤1090px 显示） */
+.sidebar-drawer-nav { display: none; }
+
 /* 核心数据字体 */
 .data-text {
   font-weight: bold;

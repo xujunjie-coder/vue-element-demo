@@ -3,16 +3,18 @@
     <!-- 财经快讯模块（新增分类筛选+已读标记） -->
     <div class="aside-module">
       <div class="module-header">
-        <h3 class="module-title">财经快讯</h3>
-        <div class="header-actions">
-          <el-select v-model="newsTag" size="mini" @change="filterNews" placeholder="全部">
-            <el-option label="全部" value=""></el-option>
-            <el-option label="资金" value="资金"></el-option>
-            <el-option label="宏观" value="宏观"></el-option>
-            <el-option label="板块" value="板块"></el-option>
-            <el-option label="实时" value="实时"></el-option>
-          </el-select>
-          <el-button type="text" icon="el-icon-refresh" @click="refreshNews"></el-button>
+        <div style="display: flex; align-items: center;">
+          <h3 class="module-title no-break" style="flex-shrink:0; margin-right:8px; max-width:72px; font-size:16px;">财经快讯</h3>
+          <div class="header-actions" style="flex:1; min-width:0; display:flex; align-items:center;">
+              <el-select v-model="newsTag" size="mini" @change="filterNews" placeholder="全部" style="width:100%; min-width:0; flex:1 1 0;">
+                <el-option label="全部" value=""></el-option>
+                <el-option label="资金" value="资金"></el-option>
+                <el-option label="宏观" value="宏观"></el-option>
+                <el-option label="板块" value="板块"></el-option>
+                <el-option label="实时" value="实时"></el-option>
+              </el-select>
+            <el-button type="text" icon="el-icon-refresh" @click="refreshNews" style="margin-left:2px;"></el-button>
+          </div>
         </div>
       </div>
       <div class="news-list" @scroll="handleNewsScroll">
@@ -42,12 +44,16 @@
     <!-- 热门股票模块 -->
     <div class="aside-module">
       <div class="module-header">
-        <h3 class="module-title">热门个股</h3>
-        <el-select v-model="hotStockType" size="mini" @change="fetchHotStocks">
-          <el-option label="涨幅榜" value="rise"></el-option>
-          <el-option label="跌幅榜" value="fall"></el-option>
-          <el-option label="换手率" value="turnover"></el-option>
-        </el-select>
+        <div style="display: flex; align-items: center;">
+          <h3 class="module-title no-break" style="flex-shrink:0; margin-right:8px; max-width:72px; font-size:16px;">热门个股</h3>
+          <div style="flex:1; min-width:0; display:flex; align-items:center;">
+            <el-select v-model="hotStockType" size="mini" @change="fetchHotStocks" style="width:100%; min-width:0; flex:1 1 0;">
+              <el-option label="涨幅榜" value="rise"></el-option>
+              <el-option label="跌幅榜" value="fall"></el-option>
+              <el-option label="换手率" value="turnover"></el-option>
+            </el-select>
+          </div>
+        </div>
       </div>
       <div class="hot-stock-list">
         <!-- 加载骨架屏 -->
@@ -545,6 +551,10 @@ export default {
   flex: 1;
   margin: 0 8px;
   line-height: 1.4;
+  word-break: break-all;
+  white-space: normal;
+  display: block;
+  overflow-wrap: anywhere;
 }
 .news-tag {
   flex-shrink: 0;
@@ -587,6 +597,11 @@ export default {
 .hot-stock-item .stock-info {
   flex: 1;
   margin: 0 8px;
+  display: flex;
+  flex-direction: column;
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .hot-stock-item .stock-code {
   font-size: 13px;
@@ -595,6 +610,10 @@ export default {
 .hot-stock-item .stock-name {
   font-size: 12px;
   color: #666;
+  word-break: break-all;
+  white-space: normal;
+  display: block;
+  overflow-wrap: anywhere;
 }
 .hot-stock-item .stock-price {
   text-align: right;

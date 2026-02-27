@@ -20,15 +20,27 @@
       </el-form-item>
       
       <el-form-item label="密码" prop="password">
+        <!-- 核心修改：添加密码显示/隐藏切换 -->
         <el-input 
           v-model="loginForm.password" 
-          type="password" 
+          :type="showPassword ? 'text' : 'password'" 
           placeholder="请输入密码"
           prefix-icon="el-icon-lock"
+          suffix-icon="el-icon"
           @keyup.enter.native="handleLogin"
           autocomplete="off"
           @blur="handleInputBlur" 
-        ></el-input>
+        >
+          <!-- 自定义后缀图标（小眼睛） -->
+          <template #suffix>
+            <i 
+              class="el-icon-view" 
+              style="cursor: pointer;"
+              @click="showPassword = !showPassword"
+              :class="{ 'icon-active': showPassword }"
+            ></i>
+          </template>
+        </el-input>
       </el-form-item>
       
       <el-form-item>
@@ -75,15 +87,20 @@ export default {
           { whitespace: true, message: '密码不能包含空格', trigger: 'blur' }
         ]
       },
-      isLoading: false
+      isLoading: false,
+      // 新增：控制密码显示/隐藏的状态
+      showPassword: false
     };
   },
   mounted() {
-    // 已登录时自动跳转到行情首页
-    if (localStorage.getItem('access_token')) {
-      this.$router.push(this.$route.query.redirect || '/quote');
-      this.$message.success('已登录，自动跳转...');
-    }
+    // 进入登录页时，只清除登录凭证（不删除用户自选股数据，按用户名隔离存储不会串号）
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_expiration');
+    localStorage.removeItem('user_info');
+    this.$store.commit('setLoginStatus', false);
+    this.$store.commit('setUserInfo', {});
+    this.$store.state.optionalStocks = [];
   },
   methods: {
     // 处理输入框失焦，清除空格
@@ -192,6 +209,11 @@ export default {
   flex: 1;
   height: 40px;
   font-size: 16px;
+}
+
+/* 新增：小眼睛图标激活态样式（可选） */
+.icon-active {
+  color: #409eff; /* 匹配Element UI主色调 */
 }
 
 /* 响应式：窄屏下按钮纵向排列 */

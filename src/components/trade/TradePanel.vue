@@ -181,28 +181,28 @@
               border
               style="width: 100%;"
             >
-              <el-table-column prop="code" label="股票代码" width="100" />
-              <el-table-column prop="name" label="股票名称" width="120" />
-              <el-table-column prop="hold" label="持仓数量" width="100" />
-              <el-table-column prop="cost" label="成本价" width="100">
+              <el-table-column prop="code" label="代码" min-width="80" />
+              <el-table-column prop="name" label="名称" min-width="80" />
+              <el-table-column prop="hold" label="持仓" min-width="70" />
+              <el-table-column prop="cost" label="成本价" min-width="70">
                 <template slot-scope="scope">{{ scope.row.cost }}</template>
               </el-table-column>
-              <el-table-column prop="price" label="最新价" width="100">
+              <el-table-column prop="price" label="最新价" min-width="70">
                 <template slot-scope="scope">
                   <span :class="getChangeClass(scope.row.profit)">{{ scope.row.price }}</span>
                 </template>
               </el-table-column>
-              <el-table-column prop="profit" label="浮盈" width="100">
+              <el-table-column prop="profit" label="浮盈" min-width="70">
                 <template slot-scope="scope">
                   <span :class="getChangeClass(scope.row.profit)">{{ scope.row.profit }}</span>
                 </template>
               </el-table-column>
-              <el-table-column prop="profit_rate" label="浮盈率(%)" width="120">
+              <el-table-column prop="profit_rate" label="盈率" min-width="70">
                 <template slot-scope="scope">
                   <span :class="getChangeClass(scope.row.profit)">{{ scope.row.profit_rate }}%</span>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="100">
+              <el-table-column label="操作" min-width="60">
                 <template slot-scope="scope">
                   <el-button
                     type="text"
@@ -243,27 +243,27 @@
               border
               style="width: 100%;"
             >
-              <el-table-column prop="order_no" label="委托单号" width="160" />
-              <el-table-column prop="code" label="股票代码" width="100" />
-              <el-table-column prop="name" label="股票名称" width="120" />
-              <el-table-column prop="direction" label="委托类型" width="100">
+              <el-table-column prop="order_no" label="委托单号" min-width="120" />
+              <el-table-column prop="code" label="代码" min-width="80" />
+              <el-table-column prop="name" label="名称" min-width="80" />
+              <el-table-column prop="direction" label="类型" min-width="60">
                 <template slot-scope="scope">
                   <span class="direction-tag" :class="scope.row.direction === 'buy' ? 'tag-buy' : 'tag-sell'">
                     {{ scope.row.direction === 'buy' ? '买入' : '卖出' }}
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column prop="price" label="委托价格" width="100" />
-              <el-table-column prop="amount" label="委托数量" width="100" />
-              <el-table-column prop="status" label="委托状态" width="120">
+              <el-table-column prop="price" label="价格" min-width="70" />
+              <el-table-column prop="amount" label="数量" min-width="70" />
+              <el-table-column prop="status" label="状态" min-width="70">
                 <template slot-scope="scope">
                   <span class="status-tag" :class="getOrderStatusClass(scope.row.status)">
                     {{ scope.row.status === 'success' ? '已成交' : scope.row.status === 'pending' ? '待成交' : '已撤销' }}
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column prop="create_time" label="委托时间" width="160" />
-              <el-table-column label="操作" width="100" v-if="activeTab === 'order'">
+              <el-table-column prop="create_time" label="委托时间" min-width="120" />
+              <el-table-column label="操作" min-width="60" v-if="activeTab === 'order'">
                 <template slot-scope="scope">
                   <el-button
                     type="text"
@@ -345,7 +345,11 @@ export default {
     };
   },
   computed: {
-    ...mapState(['currentStockCode']),
+    ...mapState(['currentStockCode', 'userInfo']),
+    // 获取当前用户名，用于 localStorage key 隔离
+    _username() {
+      return (this.userInfo && this.userInfo.username) || '';
+    },
     // 持仓总市值
     holdValue() {
       let value = 0;
@@ -360,21 +364,25 @@ export default {
     }
   },
   mounted() {
-    // ====== 前端模拟交易系统（后端无交易接口，全部使用 localStorage） ======
+    // ====== 前端模拟交易系统（按用户隔离，全部使用 localStorage） ======
+    const u = this._username;
+    const balanceKey = u ? `sim_balance_${u}` : 'sim_balance';
+    const holdKey = u ? `sim_hold_list_${u}` : 'sim_hold_list';
+    const orderKey = u ? `sim_order_list_${u}` : 'sim_order_list';
 
     // 初始化模拟资金（首次登录给 100 万）
-    if (!localStorage.getItem('sim_balance')) {
-      localStorage.setItem('sim_balance', '1000000');
+    if (!localStorage.getItem(balanceKey)) {
+      localStorage.setItem(balanceKey, '1000000');
     }
-    this.userBalance = formatPrice(Number(localStorage.getItem('sim_balance')) || 1000000);
+    this.userBalance = formatPrice(Number(localStorage.getItem(balanceKey)) || 1000000);
 
     // 从 localStorage 读取持仓和委托单
     try {
-      const savedHold = JSON.parse(localStorage.getItem('sim_hold_list') || '[]');
+      const savedHold = JSON.parse(localStorage.getItem(holdKey) || '[]');
       this.holdList = savedHold;
     } catch (e) { this.holdList = []; }
     try {
-      const savedOrders = JSON.parse(localStorage.getItem('sim_order_list') || '[]');
+      const savedOrders = JSON.parse(localStorage.getItem(orderKey) || '[]');
       this.orderList = savedOrders;
     } catch (e) { this.orderList = []; }
 
@@ -424,15 +432,19 @@ export default {
       }
     },
 
-    // ====== localStorage 持久化 ======
+    // ====== localStorage 持久化（按用户隔离） ======
+    _userKey(base) {
+      const u = this._username;
+      return u ? `${base}_${u}` : base;
+    },
     _saveHoldList() {
-      localStorage.setItem('sim_hold_list', JSON.stringify(this.holdList));
+      localStorage.setItem(this._userKey('sim_hold_list'), JSON.stringify(this.holdList));
     },
     _saveOrderList() {
-      localStorage.setItem('sim_order_list', JSON.stringify(this.orderList));
+      localStorage.setItem(this._userKey('sim_order_list'), JSON.stringify(this.orderList));
     },
     _saveBalance() {
-      localStorage.setItem('sim_balance', String(this._rawBalance()));
+      localStorage.setItem(this._userKey('sim_balance'), String(this._rawBalance()));
     },
     _rawBalance() {
       return Number(String(this.userBalance).replace(/,/g, '')) || 0;
@@ -442,15 +454,10 @@ export default {
     async queryStock(queryString, callback) {
       if (!queryString || queryString.length < 1) { callback([]); return; }
       try {
-        // 用 getSpot 缓存数据做前端搜索
-        const res = await request.getSpot('ShA');
+        // 使用后端 /spot/search 接口搜索
+        const res = await request.searchStock(queryString, 10);
         const list = res.data || [];
-        const kw = queryString.toLowerCase();
-        const matched = list.filter(item =>
-          (item.code && item.code.toLowerCase().includes(kw)) ||
-          (item.name && item.name.includes(kw))
-        ).slice(0, 10);
-        callback(matched.map(item => ({
+        callback(list.map(item => ({
           value: item.code,
           label: `${item.code} ${item.name}`
         })));
@@ -478,7 +485,7 @@ export default {
     },
     // 获取用户信息（前端模拟，不调后端）
     fetchUserInfo() {
-      this.userBalance = formatPrice(Number(localStorage.getItem('sim_balance')) || 1000000);
+      this.userBalance = formatPrice(Number(localStorage.getItem(this._userKey('sim_balance'))) || 1000000);
     },
     // 买入时获取股票名称（在线查询）
     async getStockName(type) {
@@ -506,21 +513,23 @@ export default {
         this.getStockNameFromCache(type);
       }
     },
-    // 从行情缓存中查找股票名称和价格（无需后端接口）
+    // 从行情缓存中查找股票名称和价格（使用 /spot/search 接口）
     async getStockNameFromCache(type) {
       const code = type === 'buy' ? this.buyForm.code : this.sellForm.code;
       if (!code) return;
       try {
-        const res = await request.getSpot('ShA');
+        const res = await request.searchStock(code, 1);
         const list = res.data || [];
-        const found = list.find(item => item.code === code || item.code === code.replace(/^(sh|sz|bj)/i, ''));
-        if (found) {
+        if (list.length > 0) {
+          // 搜索接口只返回 code/name，需要查询价格
+          const detail = await request.getStockLast(list[0].code, { _silent: true }).catch(() => ({ data: {} }));
+          const d = detail.data || {};
           if (type === 'buy') {
-            if (!this.buyForm.name) this.buyForm.name = found.name;
-            if (!this.buyForm.price) this.buyForm.price = formatPrice(found.last);
+            if (!this.buyForm.name) this.buyForm.name = list[0].name || d.name;
+            if (!this.buyForm.price && d.last) this.buyForm.price = formatPrice(d.last);
           } else {
-            if (!this.sellForm.name) this.sellForm.name = found.name;
-            if (!this.sellForm.price) this.sellForm.price = formatPrice(found.last);
+            if (!this.sellForm.name) this.sellForm.name = list[0].name || d.name;
+            if (!this.sellForm.price && d.last) this.sellForm.price = formatPrice(d.last);
           }
           this.calcTotal(type);
         }
@@ -731,7 +740,8 @@ export default {
 }
 .balance-info {
   display: flex;
-  gap: 30px;
+  flex-wrap: wrap;
+  gap: 12px 30px;
   margin-top: 20px;
   padding: 15px;
   background: #f9f9f9;
@@ -740,16 +750,20 @@ export default {
 .balance-item {
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 .label {
   font-size: 14px;
   color: #666;
-  margin-right: 10px;
+  margin-right: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .value {
   font-size: 16px;
   font-weight: bold;
   color: #333;
+  white-space: nowrap;
 }
 .no-hold, .no-order {
   margin-top: 50px;

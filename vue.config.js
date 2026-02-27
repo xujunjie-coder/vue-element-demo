@@ -7,7 +7,7 @@ module.exports = {
 
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://117.21.200.212:3000',
         changeOrigin: true,
         pathRewrite: { '^/api': '' },
         // 转发 cookie
@@ -23,7 +23,7 @@ module.exports = {
         }
       },
       '/ai-api': {
-        target: 'http://localhost:3000',
+        target: 'http://117.21.200.212:3000',
         changeOrigin: true,
         pathRewrite: { '^/ai-api': '' }
       }

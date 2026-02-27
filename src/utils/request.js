@@ -221,6 +221,10 @@ const _spotPending = {};   // 正在进行的请求 promise
 const _spotCache = {};     // { data, ts }
 const SPOT_CACHE_TTL = 10000; // 10 秒缓存
 
+/**
+ * 内部去重 + 短缓存：调用 /spot/sina（新浪数据源，替代已废弃的 /spot）
+ * 返回格式与旧 /spot 保持兼容：{ status: "ok", data: [...] }
+ */
 const _getSpotDedup = (stockType) => {
   // 1. 有短缓存直接返回
   const c = _spotCache[stockType];
@@ -231,12 +235,18 @@ const _getSpotDedup = (stockType) => {
   if (_spotPending[stockType]) {
     return _spotPending[stockType];
   }
-  // 3. 发起新请求
-  const p = service.get('/spot', { params: { stock_type: stockType }, timeout: 120000 })
+  // 3. 发起新请求（/spot/sina 最大 size=100）
+  const p = service.get('/spot/sina', { params: { stock_type: stockType, size: 100 }, timeout: 30000 })
     .then(res => {
-      _spotCache[stockType] = { data: res, ts: Date.now() };
+      // /spot/sina 返回 { status, data: { list, pages, total } }
+      // 转换为旧格式 { status, data: [...] } 以兼容现有调用方
+      const adapted = {
+        status: res.status,
+        data: (res.data && res.data.list) ? res.data.list : (Array.isArray(res.data) ? res.data : [])
+      };
+      _spotCache[stockType] = { data: adapted, ts: Date.now() };
       delete _spotPending[stockType];
-      return res;
+      return adapted;
     })
     .catch(err => {
       delete _spotPending[stockType];
@@ -269,8 +279,16 @@ export default {
    * 获取单股实时数据：GET /stock_last?code=sh600000
    * @param {string} code - 股票代码（可带或不带前缀，函数自动补全）
    * 返回：{ status, data: { amount, ask, bid, close, code, date, hod, last, lod, name, open, time, vol } }
+   * 注意：后端返回 data 为数组 [{...}]，此处自动提取第一个元素
    */
-  getStockLast: (code, options = {}) => service.get('/stock_last', { params: { code: addStockPrefix(code) }, ...options }),
+  getStockLast: (code, options = {}) => service.get('/stock_last', { params: { code: addStockPrefix(code) }, ...options })
+    .then(res => {
+      // 后端返回 { data: [{...}] }，统一转为 { data: {...} }
+      if (res && Array.isArray(res.data)) {
+        return { ...res, data: res.data[0] || {} };
+      }
+      return res;
+    }),
 
   /**
    * 获取实时行情列表：GET /spot?stock_type=ZhA
@@ -330,13 +348,42 @@ export default {
     if (!codes || !codes.length) return Promise.resolve([]);
     return Promise.all(
       codes.map(code =>
-        service.get('/stock_last', { params: { code: addStockPrefix(code) } })
-          .then(res => res.data || {})
+        service.get('/stock_last', {
+          params: { code: addStockPrefix(code) },
+          _silent: true   // 批量请求：个别失败不弹 Message，由调用方兜底
+        })
+          .then(res => {
+            // 后端返回 { data: [{...}] }，提取第一个元素
+            const d = res.data;
+            return Array.isArray(d) ? (d[0] || {}) : (d || {});
+          })
           .catch(() => null)
       )
     );
   },
 
-  // ---------- 搜索（前端可用 spot 数据过滤替代） ----------
-  searchStock: (keyword) => service.get('/stock/search', { params: { keyword } })
+  /**
+   * 分页行情数据（新浪数据源）：GET /spot/sina
+   * 替代已废弃的 /spot 和 /spot/list
+   * @param {Object} params - { stock_type, page, size(max 100), sort(zd/ud/vol/amount/last/name), order(asc/desc) }
+   * 返回原始分页响应：{ status, data: { list: [...], pages, total } }
+   */
+  getSpotSina: (params) => service.get('/spot/sina', {
+    params: {
+      stock_type: params.stock_type || 'ShA',
+      page: params.page || 1,
+      size: Math.min(params.size || 50, 100),
+      ...(params.sort ? { sort: params.sort } : {}),
+      ...(params.order ? { order: params.order } : {})
+    },
+    timeout: 30000
+  }),
+
+  /**
+   * 股票搜索：GET /spot/search
+   * @param {string} keyword - 搜索关键字（代码或名称）
+   * @param {number} limit - 返回条数限制
+   * 返回：{ status, data: [{ code, name, type }] }
+   */
+  searchStock: (keyword, limit) => service.get('/spot/search', { params: { keyword, limit: limit || 10 } })
 };

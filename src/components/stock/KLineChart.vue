@@ -516,8 +516,8 @@ export default {
   }
 }
 
-/* ===== 响应式：手机 ===== */
-@media screen and (max-width: 768px) {
+/* ===== 响应式：移动端 ===== */
+@media screen and (max-width: 767px) {
   .chart-controls {
     flex-direction: column;
     align-items: stretch;

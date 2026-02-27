@@ -18,28 +18,46 @@
       </el-form-item>
 
       <el-form-item label="密码" prop="password">
+        <!-- 密码框添加小眼睛 -->
         <el-input
           v-model="registerForm.password"
-          type="password"
+          :type="showPassword ? 'text' : 'password'"
           placeholder="请输入密码（至少6位）"
           autocomplete="off"
           @keyup.enter.native="handleRegister"
-        ></el-input>
+        >
+          <template #suffix>
+            <i 
+              class="el-icon-view" 
+              style="cursor: pointer;"
+              @click="showPassword = !showPassword"
+            ></i>
+          </template>
+        </el-input>
       </el-form-item>
 
       <el-form-item label="确认密码" prop="confirm">
+        <!-- 确认密码框添加小眼睛 -->
         <el-input
           v-model="registerForm.confirm"
-          type="password"
+          :type="showConfirmPassword ? 'text' : 'password'"
           placeholder="请再次输入密码"
           autocomplete="off"
           @keyup.enter.native="handleRegister"
-        ></el-input>
+        >
+          <template #suffix>
+            <i 
+              class="el-icon-view" 
+              style="cursor: pointer;"
+              @click="showConfirmPassword = !showConfirmPassword"
+            ></i>
+          </template>
+        </el-input>
       </el-form-item>
 
       <el-form-item>
         <el-button type="primary" @click="handleRegister" :loading="isLoading">注册</el-button>
-        <el-button type="text" @click="goLogin">已有账号，返回登录</el-button>
+        <el-button type="primary" @click="goLogin">返回登录</el-button>
       </el-form-item>
     </el-form>
   </div>
@@ -57,6 +75,9 @@ export default {
         confirm: ''
       },
       isLoading: false,
+      // 新增：控制密码显示/隐藏的状态
+      showPassword: false,
+      showConfirmPassword: false,
       registerRules: {
         username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
         password: [
@@ -86,13 +107,10 @@ export default {
             username: this.registerForm.username.trim(),
             password: this.registerForm.password
           });
-          // 后端注册成功返回：{ status: "ok", msg: "注册成功" }
-          // 注册只创建账号，不自动登录，引导用户去登录页
           this.$message.success(res.msg || '注册成功，请登录');
           this.$router.push('/login');
         } catch (err) {
-          // 响应拦截器已处理错误提示（如 409: 用户名已被使用）
-          // 这里只做兜底
+          // 响应拦截器已处理错误提示
         } finally {
           this.isLoading = false;
         }

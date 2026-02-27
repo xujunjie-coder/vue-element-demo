@@ -3,7 +3,7 @@
     <!-- 行情筛选栏 - 缩小内边距、间距 -->
     <div class="card-container filter-bar">
       <el-row :gutter="10">
-        <el-col :span="6" :xs="24">
+        <el-col :span="6">
           <el-select v-model="marketType" placeholder="市场类型" size="mini" @change="handleMarketChange">
             <el-option
               v-for="(val, key) in MarketType"
@@ -13,27 +13,30 @@
             ></el-option>
           </el-select>
         </el-col>
-        <el-col :span="6" :xs="24">
-          <el-select v-model="sortType" placeholder="排序方式" size="mini">
-            <el-option label="涨跌幅↑" value="change_rate_desc"></el-option>
-            <el-option label="涨跌幅↓" value="change_rate_asc"></el-option>
-            <el-option label="价格↑" value="price_desc"></el-option>
-            <el-option label="价格↓" value="price_asc"></el-option>
-            <el-option label="成交量↑" value="volume_desc"></el-option>
+        <el-col :span="6">
+          <el-select v-model="sortType" placeholder="排序方式" size="mini" clearable @change="handleSortChange">
+            <el-option label="涨跌幅 ↑" value="zd_desc"></el-option>
+            <el-option label="涨跌幅 ↓" value="zd_asc"></el-option>
+            <el-option label="价格 ↑" value="last_desc"></el-option>
+            <el-option label="价格 ↓" value="last_asc"></el-option>
+            <el-option label="成交量 ↑" value="vol_desc"></el-option>
+            <el-option label="成交量 ↓" value="vol_asc"></el-option>
+            <el-option label="成交额 ↑" value="amount_desc"></el-option>
+            <el-option label="成交额 ↓" value="amount_asc"></el-option>
           </el-select>
         </el-col>
-        <el-col :span="8" :xs="24">
+        <el-col :span="8">
           <el-input
             v-model="searchKeyword"
             placeholder="代码/名称"
             prefix-icon="el-icon-search"
-            @keyup.enter="searchStock"
+            @keyup.enter.native="searchStock"
             size="mini"
           ></el-input>
         </el-col>
-        <el-col :span="4" :xs="24">
-          <el-button type="primary" @click="refreshQuote" size="mini">
-            <i class="el-icon-refresh"></i> 刷新
+        <el-col :span="4">
+          <el-button type="primary" @click="searchStock" size="mini" style="width: 100%;">
+            <i class="el-icon-search"></i> 搜索
           </el-button>
         </el-col>
       </el-row>
@@ -50,38 +53,34 @@
         v-loading="loading"
         element-loading-text="正在加载行情数据，首次加载可能需要30~90秒，请耐心等待..."
       >
-        <el-table-column type="index" label="序号" width="50" />
-        <el-table-column prop="code" label="代码" width="70">
-          <template slot-scope="scope">
-            <span class="stock-link" @click="goStockDetail(scope.row)">{{ scope.row.code }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="name" label="名称" width="80">
+        <el-table-column type="index" label="序号" width="56" align="center" header-align="center" />
+        <el-table-column prop="code" label="代码" min-width="60" />
+        <el-table-column prop="name" label="名称" min-width="60">
           <template slot-scope="scope">
             <span class="stock-link" @click="goStockDetail(scope.row)">{{ scope.row.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="price" label="最新价" width="80">
+        <el-table-column prop="price" label="最新价" min-width="65">
           <template slot-scope="scope">
             <span class="data-text only-price-num">{{ scope.row.price }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="change" label="涨跌额" width="83">
+        <el-table-column prop="change" label="涨跌额" min-width="65">
           <template slot-scope="scope">
             <span :class="getChangeClass(scope.row.change)">{{ scope.row.change }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="change_rate" label="涨跌幅(%)" width="80">
+        <el-table-column prop="change_rate" label="涨跌幅" min-width="65">
           <template slot-scope="scope">
             <span :class="getChangeClass(scope.row.change)">
               {{ scope.row.change_rate }}%
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="volume" label="成交量(手)" width="80" />
-        <el-table-column prop="high" label="最高价" width="70" />
-        <el-table-column prop="low" label="最低价" width="70" />
-        <el-table-column label="操作" width="140">
+        <el-table-column prop="volume" label="成交量" min-width="70" />
+        <el-table-column prop="high" label="最高" min-width="58" />
+        <el-table-column prop="low" label="最低" min-width="58" />
+        <el-table-column label="操作" min-width="100">
           <template slot-scope="scope">
             <el-button
               type="text"
@@ -120,7 +119,9 @@
         :page-size="size"
         layout="total, sizes, prev, pager, next, jumper"
         :total="total"
+        :pager-count="pagerCount"
         size="mini"
+        class="stock-pagination"
         style="margin-top: 10px; text-align: right; font-size: 12px;"
       >
       </el-pagination>
@@ -141,7 +142,7 @@ import request from '../../utils/request';
 import { stripStockPrefix } from '../../utils/request';
 import { MarketType, MarketTypeLabel } from '../../utils/constants';
 import { getChangeClass, formatPrice, formatChangeRate, formatVolume } from '../../utils/format';
-import { throttle, getCache, setCache } from '../../utils/tool';
+import { throttle } from '../../utils/tool';
 
 export default {
   name: 'StockQuote',
@@ -153,24 +154,35 @@ export default {
       marketType: 'ShA', // 默认沪市A股（加载更快）
       sortType: '',
       searchKeyword: '',
-      sectorFilter: '',
-      conceptFilter: '',
-      indexCode: '',
-      // 分页参数（前端分页，后端 /spot 返回全量数据）
+      // 分页参数（服务端分页，/spot/sina 支持 page/size）
       page: 1,
       size: 20,
       total: 0,
-      // 行情数据（全量 + 当前页）
-      allQuoteList: [], // 后端返回的全量数据
+      totalPages: 0,
+      // 行情数据（服务端分页，仅保留当前页数据）
       quoteList: [],    // 当前页展示数据
+      _searchAllData: [], // 搜索/板块筛选时缓存全量映射数据，用于客户端分页
       loading: false,
       // 图表实例
       chartInstance: null,
       // 自动刷新定时器
-      refreshTimer: null
+      refreshTimer: null,
+      // 窗口宽度（用于响应式分页）
+      windowWidth: window.innerWidth
     };
   },
+  computed: {
+    /** 根据屏幕宽度动态调整显示的页码数量，避免分页溢出 */
+    pagerCount() {
+      if (this.windowWidth < 500) return 3;
+      if (this.windowWidth < 700) return 5;
+      return 7;
+    }
+  },
   mounted() {
+    window.addEventListener('resize', this._handlePagerResize = () => {
+      this.windowWidth = window.innerWidth;
+    });
     const q = this.$route && this.$route.query ? this.$route.query : {};
     const hasRouteFilter = !!(q.market || q.sector || q.concept || q.name);
 
@@ -178,16 +190,8 @@ export default {
       // 有路由筛选参数时，由 applyRouteFilter 统一处理，避免双重请求
       this.applyRouteFilter();
     } else {
-      // 无筛选参数时，优化首屏：先从缓存读取数据，快速渲染
-      const cached = getCache('quoteList_cache');
-      if (cached && cached.length) {
-        this.allQuoteList = cached;
-        this.total = cached.length;
-        this.applyPageData();
-        this.fetchQuoteList({ useCacheFallback: true });
-      } else {
-        this.fetchQuoteList({ useCacheFallback: false });
-      }
+      // 无筛选参数时，直接加载第一页数据
+      this.fetchQuoteList({ useCacheFallback: false });
     }
 
     // 初始化图表（延迟加载，优先表格数据）
@@ -197,7 +201,7 @@ export default {
       setTimeout(() => { this.fetchIndexData(); }, 500);
     });
     // 设置自动刷新
-    this.refreshTimer = setInterval(throttle(this.fetchQuoteList.bind(this, { useCacheFallback: true })), 120000);
+    this.refreshTimer = setInterval(throttle(this.fetchQuoteList.bind(this, { useCacheFallback: true, silent: true })), 120000);
     // 指数图表每2分钟刷新
     this.chartRefreshTimer = setInterval(() => { this.fetchIndexData(); }, 120000);
   },
@@ -205,6 +209,7 @@ export default {
     clearInterval(this.refreshTimer);
     clearInterval(this.chartRefreshTimer);
     this.chartInstance?.dispose();
+    window.removeEventListener('resize', this._handlePagerResize);
   },
   watch: {
     '$route.query': {
@@ -220,23 +225,20 @@ export default {
 
     /**
      * 后端字段 → 前端字段映射
-     * 后端 /spot 返回: { id, code, name, last, zd, ud, vol, amount, hod, lod, open, close, vr, hsr, per, pbr, tmc, ffmcap, pv, 5mc, 3mpm, zf }
+     * 后端 /spot/sina 返回: { code, name, last, zd, ud, vol, amount, hod, lod, open, close, hsr, per, pbr, tmc, ffmcap, symbol, ... }
      * 前端显示需要: code, name, price, change, change_rate, volume, high, low
      */
     mapSpotItem(item) {
       return {
         ...item,
-        // 保留原始代码（后端返回的 code 不带市场前缀如 "300449"）
         code: item.code || '',
         name: item.name || '',
-        // 映射核心字段
         price: formatPrice(item.last),
         change: formatPrice(item.ud),
         change_rate: formatChangeRate(item.zd),
         volume: formatVolume(item.vol),
         high: formatPrice(item.hod),
         low: formatPrice(item.lod),
-        // 保留原始数值用于排序
         _last: Number(item.last) || 0,
         _ud: Number(item.ud) || 0,
         _zd: Number(item.zd) || 0,
@@ -245,78 +247,146 @@ export default {
     },
 
     /**
-     * 获取行情列表（调用后端 /spot 接口）
+     * 获取行情列表（调用后端 /spot/sina 分页接口）
      */
-    async fetchQuoteList(options = { useCacheFallback: true }) {
+    async fetchQuoteList(options = { useCacheFallback: false, silent: false }) {
       if (this._fetching) return;
       this._fetching = true;
 
-      if (!options.useCacheFallback) {
+      if (!options.silent) {
         this.loading = true;
       }
 
       try {
-        const res = await request.getSpot(this.marketType);
-        // 后端返回：{ status: "ok", data: [...] }
-        const rawList = res.data || [];
+        let rawList = [];
+        let total = 0;
+        let totalPages = 0;
+
+        // 如果有搜索关键词，使用 /spot/search 搜索接口
+        if (this.searchKeyword) {
+          // 仅首次搜索或关键词变化时请求后端，翻页直接复用缓存
+          if (!this._searchAllData || this._searchAllData.length === 0 || this._lastSearchKeyword !== this.searchKeyword) {
+            this._lastSearchKeyword = this.searchKeyword;
+            const searchRes = await request.searchStock(this.searchKeyword, 50);
+            const searchList = searchRes.data || [];
+            if (searchList.length > 0) {
+              // 搜索接口只返回 { code, name, type }，需要批量查价格
+              const batchData = await request.getStockLastBatch(searchList.map(s => s.code));
+              rawList = searchList.map((s, i) => {
+                const detail = batchData[i] || {};
+                const last = Number(detail.last) || 0;
+                const close = Number(detail.close) || 0;
+                const ud = last - close;
+                const zd = close > 0 ? (ud / close * 100) : 0;
+                return {
+                  code: s.code,
+                  name: s.name || detail.name || '',
+                  last: last,
+                  ud: ud,
+                  zd: zd,
+                  vol: detail.vol || 0,
+                  amount: detail.amount || 0,
+                  hod: detail.hod || 0,
+                  lod: detail.lod || 0,
+                  open: detail.open || 0,
+                  close: close
+                };
+              });
+              // 映射 + 缓存全量数据
+              this._searchAllData = rawList.map(item => this.mapSpotItem(item));
+            } else {
+              this._searchAllData = [];
+            }
+          }
+          // 从缓存中按 page/size 切片
+          total = this._searchAllData.length;
+          totalPages = Math.ceil(total / this.size);
+          const start = (this.page - 1) * this.size;
+          rawList = []; // 搜索路径不走后面的 rawList 映射
+          // 直接赋值分页切片（已映射+排序）
+          let slicedData = this._searchAllData;
+          // 客户端排序（排序整个搜索结果集，再切片）
+          if (this.sortType) {
+            const sortMap = {
+              zd_desc: (a, b) => b._zd - a._zd,
+              zd_asc: (a, b) => a._zd - b._zd,
+              last_desc: (a, b) => b._last - a._last,
+              last_asc: (a, b) => a._last - b._last,
+              vol_desc: (a, b) => b._vol - a._vol,
+              vol_asc: (a, b) => a._vol - b._vol,
+              amount_desc: (a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0),
+              amount_asc: (a, b) => (Number(a.amount) || 0) - (Number(b.amount) || 0)
+            };
+            if (sortMap[this.sortType]) {
+              slicedData = [...this._searchAllData].sort(sortMap[this.sortType]);
+            }
+          }
+          this.quoteList = slicedData.slice(start, start + this.size);
+          this.total = total;
+          this.totalPages = totalPages;
+          this.loading = false;
+          this._fetching = false;
+          return; // 搜索路径到此结束
+        } else {
+          // 切换到非搜索模式时清空缓存
+          this._searchAllData = [];
+          // 正常分页查询：使用 /spot/sina 接口
+          const params = {
+            stock_type: this.marketType,
+            page: this.page,
+            size: this.size
+          };
+
+          // 将前端 sortType（如 "zd_desc"）拆分为后端 sort + order 参数
+          if (this.sortType) {
+            const parts = this.sortType.split('_');
+            const dir = parts.pop();          // "desc" 或 "asc"
+            const field = parts.join('_');     // "zd" / "last" / "vol" / "amount"
+            params.sort = field;
+            params.order = dir;
+          }
+
+          const res = await request.getSpotSina(params);
+          // 后端返回：{ status: "ok", data: { list: [...], pages, total } }
+          const resData = res.data || {};
+          rawList = resData.list || [];
+          total = resData.total || 0;
+          totalPages = resData.pages || 0;
+        }
 
         // 映射字段
-        const mapped = rawList.map(item => this.mapSpotItem(item));
+        let mapped = rawList.map(item => this.mapSpotItem(item));
 
-        this.allQuoteList = mapped;
-        this.total = mapped.length;
+        // 客户端排序兜底（搜索结果或后端未排序时在当前页内排序）
+        if (this.sortType) {
+          const sortMap = {
+            zd_desc: (a, b) => b._zd - a._zd,
+            zd_asc: (a, b) => a._zd - b._zd,
+            last_desc: (a, b) => b._last - a._last,
+            last_asc: (a, b) => a._last - b._last,
+            vol_desc: (a, b) => b._vol - a._vol,
+            vol_asc: (a, b) => a._vol - b._vol,
+            amount_desc: (a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0),
+            amount_asc: (a, b) => (Number(a.amount) || 0) - (Number(b.amount) || 0)
+          };
+          if (sortMap[this.sortType]) {
+            mapped.sort(sortMap[this.sortType]);
+          }
+        }
 
-        // 缓存短期数据
-        setCache('quoteList_cache', rawList, 10);
-
-        // 应用搜索过滤 + 排序 + 分页
-        this.applyPageData();
+        this.quoteList = mapped;
+        this.total = total;
+        this.totalPages = totalPages;
       } catch (err) {
-        if (!options.useCacheFallback) {
+        if (!options.silent) {
           this.$message.error('行情数据加载失败，请稍后重试');
         } else {
           console.warn('fetchQuoteList background update failed', err);
         }
       } finally {
-        if (!options.useCacheFallback) this.loading = false;
+        this.loading = false;
         this._fetching = false;
       }
-    },
-
-    /**
-     * 对全量数据进行搜索、排序、分页
-     */
-    applyPageData() {
-      let filtered = [...this.allQuoteList];
-
-      // 关键词过滤（代码或名称）
-      if (this.searchKeyword) {
-        const kw = this.searchKeyword.toLowerCase();
-        filtered = filtered.filter(
-          item => (item.code && item.code.toLowerCase().includes(kw)) ||
-                  (item.name && item.name.includes(kw))
-        );
-      }
-
-      // 排序
-      if (this.sortType) {
-        const sortMap = {
-          change_rate_desc: (a, b) => b._zd - a._zd,
-          change_rate_asc: (a, b) => a._zd - b._zd,
-          price_desc: (a, b) => b._last - a._last,
-          price_asc: (a, b) => a._last - b._last,
-          volume_desc: (a, b) => b._vol - a._vol
-        };
-        if (sortMap[this.sortType]) {
-          filtered.sort(sortMap[this.sortType]);
-        }
-      }
-
-      this.total = filtered.length;
-
-      // 分页
-      const start = (this.page - 1) * this.size;
-      this.quoteList = filtered.slice(start, start + this.size);
     },
     // 初始化行情图表
     initQuoteChart() {
@@ -470,16 +540,23 @@ export default {
         console.warn('fetchIndexData error:', err);
       }
     },
-    // 搜索股票
+    // 搜索股票（调用后端 /spot/search 接口）
     searchStock() {
       this.page = 1;
-      this.applyPageData();
+      this._searchAllData = []; // 清空缓存，强制重新搜索
+      this.fetchQuoteList({ useCacheFallback: false, silent: false });
     },
     // 切换市场类型
     handleMarketChange() {
       this.page = 1;
       this.searchKeyword = '';
-      this.fetchQuoteList({ useCacheFallback: false });
+      this._searchAllData = [];
+      this.fetchQuoteList({ useCacheFallback: false, silent: false });
+    },
+    // 切换排序方式
+    handleSortChange() {
+      this.page = 1;
+      this.fetchQuoteList({ useCacheFallback: false, silent: false });
     },
     // 根据路由 query 应用筛选条件并刷新列表
     applyRouteFilter() {
@@ -491,66 +568,40 @@ export default {
       if (q.market) {
         this.marketType = q.market;
         this.searchKeyword = '';
-        this.sectorFilter = '';
-        this.conceptFilter = '';
         this.page = 1;
-        this.fetchQuoteList({ useCacheFallback: false });
+        this.fetchQuoteList({ useCacheFallback: false, silent: false });
         if (q.name) this.$message.info(`已切换到：${q.name}`);
         return;
       }
 
-      // 2. 板块分类筛选（前端关键词过滤）
+      // 2. 板块分类筛选（使用搜索关键词）
       if (q.sector) {
-        // 板块关键词映射：后端无板块接口，用名称关键词在全量数据中查找
         const sectorKeywords = {
-          finance: '银行|保险|证券|金融|信托',
-          technology: '科技|电子|计算机|软件|信息|半导体|芯片',
-          consumption: '食品|饮料|白酒|家电|医药|零售|服装|消费',
-          new_energy: '新能源|太阳能|光伏|风电|电池|储能|充电'
+          finance: '银行',
+          technology: '科技',
+          consumption: '食品',
+          new_energy: '新能源'
         };
-        this.sectorFilter = q.sector;
-        this.conceptFilter = '';
-        this.searchKeyword = '';
-        this.marketType = 'ZhA'; // 板块默认在沪深京全量数据中筛选
+        this.searchKeyword = sectorKeywords[q.sector] || '';
+        this.marketType = 'ZhA';
         this.page = 1;
-        // 先拉取全量数据，然后用关键词过滤
-        this.fetchQuoteList({ useCacheFallback: false }).then(() => {
-          const keywords = sectorKeywords[q.sector];
-          if (keywords) {
-            const regex = new RegExp(keywords, 'i');
-            const filtered = this.allQuoteList.filter(item => regex.test(item.name));
-            this.allQuoteList = filtered;
-            this.total = filtered.length;
-            this.applyPageData();
-          }
-        });
+        this.fetchQuoteList({ useCacheFallback: false, silent: false });
         if (q.name) this.$message.info(`已筛选：${q.name}`);
         return;
       }
 
-      // 3. 概念分类筛选（前端关键词过滤）
+      // 3. 概念分类筛选（使用搜索关键词）
       if (q.concept) {
         const conceptKeywords = {
-          ai: '人工智能|AI|机器人|算力|模型',
-          digital_economy: '数字|数据|云计算|物联网|区块链',
-          carbon_neutral: '碳|环保|节能|绿色|新能源',
-          biomed: '医药|生物|医疗|制药|疑苗|基因'
+          ai: '智能',
+          digital_economy: '数字',
+          carbon_neutral: '环保',
+          biomed: '医药'
         };
-        this.conceptFilter = q.concept;
-        this.sectorFilter = '';
-        this.searchKeyword = '';
+        this.searchKeyword = conceptKeywords[q.concept] || '';
         this.marketType = 'ZhA';
         this.page = 1;
-        this.fetchQuoteList({ useCacheFallback: false }).then(() => {
-          const keywords = conceptKeywords[q.concept];
-          if (keywords) {
-            const regex = new RegExp(keywords, 'i');
-            const filtered = this.allQuoteList.filter(item => regex.test(item.name));
-            this.allQuoteList = filtered;
-            this.total = filtered.length;
-            this.applyPageData();
-          }
-        });
+        this.fetchQuoteList({ useCacheFallback: false, silent: false });
         if (q.name) this.$message.info(`已筛选：${q.name}`);
         return;
       }
@@ -559,13 +610,13 @@ export default {
       if (q.name) {
         this.searchKeyword = q.name;
         this.page = 1;
-        this.applyPageData();
+        this.fetchQuoteList({ useCacheFallback: false, silent: false });
         this.$message.info(`已按【${q.name}】筛选`);
       }
     },
     // 刷新行情
     refreshQuote() {
-      this.fetchQuoteList({ useCacheFallback: false });
+      this.fetchQuoteList({ useCacheFallback: false, silent: false });
       this.$message.success('行情数据已刷新');
     },
     // 跳转到个股详情
@@ -574,6 +625,14 @@ export default {
     },
     // 添加到自选股
     addToOptional(row) {
+      // 判断是否已存在于自选股
+      const exists = this.$store.state.optionalStocks.some(s => s.code === row.code);
+      if (exists) {
+        this.$message.warning(`${row.name} 已在自选股中`);
+        // 触发侧边栏闪光动画
+        this.$root.$emit('flash-optional-stock', row.code);
+        return;
+      }
       this.addOptionalStock({
         code: row.code,
         name: row.name,
@@ -593,12 +652,12 @@ export default {
     handleSizeChange(val) {
       this.size = val;
       this.page = 1;
-      this.applyPageData();
+      this.fetchQuoteList({ useCacheFallback: false, silent: false });
     },
     // 当前页改变
     handleCurrentChange(val) {
       this.page = val;
-      this.applyPageData();
+      this.fetchQuoteList({ useCacheFallback: false, silent: false });
     }
   }
 };
@@ -646,12 +705,29 @@ export default {
   font-size: 12px;
   color: #333;
 }
+
+/* 分页响应式：窄屏隐藏次要元素 */
+@media screen and (max-width: 900px) {
+  ::v-deep .stock-pagination .el-pagination__jump {
+    display: none !important;
+  }
+}
+@media screen and (max-width: 700px) {
+  ::v-deep .stock-pagination .el-pagination__sizes {
+    display: none !important;
+  }
+}
+@media screen and (max-width: 500px) {
+  ::v-deep .stock-pagination .el-pagination__total {
+    display: none !important;
+  }
+}
 ::v-deep .only-price-num {
   font-size: 12px !important;
   line-height: 1;
 }
 
-/* 响应式：移动端 */
+/* 响应式：小屏筛选栏 */
 @media screen and (max-width: 767px) {
   .filter-bar {
     padding: 6px 8px;
@@ -660,6 +736,10 @@ export default {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+  }
+  .filter-bar .el-select,
+  .filter-bar .el-input {
+    width: 100% !important;
   }
   .chart-title {
     font-size: 13px;

@@ -74,7 +74,7 @@ export default {
 }
 
 /* 移动端适配 */
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 767px) {
   .footer-container {
     flex-direction: column;
     align-items: center;

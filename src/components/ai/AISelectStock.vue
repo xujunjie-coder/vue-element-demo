@@ -76,9 +76,9 @@
           style="width: 100%;"
           @row-click="goStockDetail"
         >
-          <el-table-column prop="code" label="股票代码" width="100" />
-          <el-table-column prop="name" label="股票名称" width="120" />
-          <el-table-column prop="score" label="匹配分数" width="150">
+          <el-table-column prop="code" label="股票代码" min-width="80" />
+          <el-table-column prop="name" label="股票名称" min-width="90" />
+          <el-table-column prop="score" label="匹配分数" min-width="120">
             <template slot-scope="scope">
               <div class="score-container">
                 <span class="score-text">{{ scope.row.score }}</span>
@@ -87,7 +87,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="180">
+          <el-table-column label="操作" min-width="140">
             <template slot-scope="scope">
               <el-button
                 type="text"

@@ -1,5 +1,5 @@
 <template>
-  <div id="app">
+  <div id="app" :class="{ 'right-drawer-open': rightDrawerOpen, 'left-drawer-open': leftDrawerOpen }">
     <!-- 路由多视图渲染：头部 -->
     <router-view name="header"></router-view>
     
@@ -19,27 +19,102 @@
     
     <!-- 底部版权栏 -->
     <router-view name="footer"></router-view>
+
+    <!-- 右侧边栏抽屉触发按钮（≤1460px 时显示） -->
+    <div
+      class="drawer-trigger right-trigger"
+      @click="rightDrawerOpen = true"
+      v-show="showRightTrigger && !rightDrawerOpen"
+    >
+      <i class="el-icon-d-arrow-left"></i>
+    </div>
+
+    <!-- 左侧边栏抽屉触发按钮（≤1090px 时显示） -->
+    <div
+      class="drawer-trigger left-trigger"
+      @click="leftDrawerOpen = true"
+      v-show="showLeftTrigger && !leftDrawerOpen"
+    >
+      <i class="el-icon-d-arrow-right"></i>
+    </div>
+
+    <!-- 抽屉遮罩层 -->
+    <transition name="fade">
+      <div
+        class="drawer-overlay"
+        v-if="rightDrawerOpen || leftDrawerOpen"
+        @click="closeAllDrawers"
+      ></div>
+    </transition>
   </div>
 </template>
 
 <script>
 export default {
-  name: 'App'
+  name: 'App',
+  data() {
+    return {
+      windowWidth: window.innerWidth,
+      rightDrawerOpen: false,
+      leftDrawerOpen: false
+    };
+  },
+  computed: {
+    /** 当前路由是否包含侧边栏布局 */
+    hasLayout() {
+      const name = this.$route.name;
+      return ['StockQuote', 'StockDetail', 'AISelectStock', 'TradePanel'].includes(name);
+    },
+    /** 是否显示右侧抽屉触发按钮 */
+    showRightTrigger() {
+      return this.hasLayout && this.windowWidth <= 1460;
+    },
+    /** 是否显示左侧抽屉触发按钮 */
+    showLeftTrigger() {
+      return this.hasLayout && this.windowWidth <= 1090;
+    }
+  },
+  mounted() {
+    this.handleResize();
+    window.addEventListener('resize', this.handleResize);
+    // 监听 Header 组件触发的侧边栏抽屉切换
+    this.$root.$on('toggle-left-drawer', () => {
+      this.leftDrawerOpen = !this.leftDrawerOpen;
+    });
+  },
+  beforeDestroy() {
+    window.removeEventListener('resize', this.handleResize);
+    this.$root.$off('toggle-left-drawer');
+  },
+  methods: {
+    handleResize() {
+      this.windowWidth = window.innerWidth;
+      // 屏幕变宽时自动关闭不再需要的抽屉
+      if (this.windowWidth > 1460) this.rightDrawerOpen = false;
+      if (this.windowWidth > 1090) this.leftDrawerOpen = false;
+    },
+    closeAllDrawers() {
+      this.rightDrawerOpen = false;
+      this.leftDrawerOpen = false;
+    }
+  },
+  watch: {
+    // 路由切换时关闭所有抽屉
+    '$route'() {
+      this.closeAllDrawers();
+    }
+  }
 };
 </script>
 
 <style>
-/* 全局样式变量（遵循PDF色彩规范） */
+/* ============================================================
+   App 根组件布局样式
+   - CSS 变量定义在 global.css（唯一来源）
+   - 媒体查询定义在 media.css（唯一来源）
+   ============================================================ */
+
 #app {
-  --spacing-base: 16px;
-  --color-bg: #f5f7fa;
-  --color-border: #e5e6eb;
-  --color-up: #e53935;
-  --color-down: #2f9b56;
-  --color-neutral: #999;
-  --sidebar-width: 240px;
-  --right-aside-width: 300px;
-  
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -62,55 +137,11 @@ export default {
   -webkit-overflow-scrolling: touch;
 }
 
-/* 响应式样式类 */
-.hide-on-mobile { display: block !important; }
-.hide-on-pc    { display: none !important; }
-.hide-on-tablet { display: block !important; }
-
-/* 涨跌色彩样式类 */
-.text-up      { color: var(--color-up) !important; }
-.text-down    { color: var(--color-down) !important; }
-.text-neutral { color: var(--color-neutral) !important; }
-
-/* 移动端适配（<768px） */
-@media screen and (max-width: 767px) {
-  .hide-on-mobile { display: none !important; }
-  .hide-on-pc    { display: block !important; }
-  
-  #app {
-    --spacing-base: 6px;
-  }
-
-  .main-container {
-    height: calc(100vh - 48px - 28px); /* header 48 + footer 28 */
-  }
-}
-
-/* 平板适配（768-1199px） */
-@media screen and (min-width: 768px) and (max-width: 1199px) {
-  .hide-on-tablet { display: none !important; }
-  
-  #app {
-    --spacing-base: 10px;
-  }
-
-  .main-container {
-    height: calc(100vh - 54px);
-  }
-}
-
-/* PC适配（>=1200px） */
-@media screen and (min-width: 1200px) {
-  .main-container {
-    height: calc(100vh - 60px);
-  }
-}
-
 /* ElementUI 全局样式重置 */
 .el-header {
   padding: 0 !important;
-  height: 60px !important;
-  line-height: 60px !important;
+  height: var(--header-height, 60px) !important;
+  line-height: var(--header-height, 60px) !important;
   flex-shrink: 0;
 }
 .el-aside {
@@ -156,5 +187,51 @@ export default {
 .fade-enter,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* ====== 抽屉触发按钮 ====== */
+.drawer-trigger {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1999;
+  width: 20px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.25s;
+  font-size: 14px;
+  color: #999;
+}
+.drawer-trigger:hover {
+  background: #fff;
+  color: var(--color-up);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  width: 24px;
+}
+.right-trigger {
+  right: 0;
+  border-radius: 4px 0 0 4px;
+  border-right: none;
+}
+.left-trigger {
+  left: 0;
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+
+/* ====== 抽屉遮罩层 ====== */
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1998;
 }
 </style>

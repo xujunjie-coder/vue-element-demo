@@ -47,9 +47,11 @@
         </div>
       </div>
 
-      <!-- 功能入口卡片 -->
+      <!-- 功能入口卡片（提前到投资概览前） -->
       <div class="function-card">
-        <h3 class="card-title">功能入口</h3>
+        <h3 class="card-title">
+          <i class="el-icon-menu" style="margin-right:6px;color:var(--color-up);"></i>功能入口
+        </h3>
         <div class="function-list">
           <div class="function-item" @click="openOptionalDialog">
             <i class="el-icon-star-on"></i>
@@ -67,13 +69,236 @@
             <i class="el-icon-setting"></i>
             <span>系统设置</span>
           </div>
+          <div class="function-item" @click="$router.push('/ai/select')">
+            <i class="el-icon-cpu"></i>
+            <span>AI智能选股</span>
+          </div>
+          <div class="function-item" @click="$router.push('/trade')">
+            <i class="el-icon-s-finance"></i>
+            <span>模拟交易</span>
+          </div>
+          <div class="function-item" @click="$router.push('/quote')">
+            <i class="el-icon-s-data"></i>
+            <span>行情首页</span>
+          </div>
+          <div class="function-item" @click="openAboutDialog">
+            <i class="el-icon-info"></i>
+            <span>关于系统</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 资产概览卡片 -->
+      <div class="stats-card">
+        <h3 class="card-title">
+          <i class="el-icon-data-analysis" style="margin-right:6px;color:var(--color-up);"></i>投资概览
+        </h3>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">总收益率</div>
+            <div class="stat-value" :class="getChangeClass(totalReturnRate)">
+              {{ totalReturnRate > 0 ? '+' : '' }}{{ totalReturnRate }}%
+            </div>
+            <div class="stat-bar">
+              <div
+                class="stat-bar-fill"
+                :class="totalReturnRate >= 0 ? 'bar-up' : 'bar-down'"
+                :style="{ width: Math.min(Math.abs(totalReturnRate) * 2, 100) + '%' }"
+              ></div>
+            </div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">累计盈亏</div>
+            <div class="stat-value" :class="getChangeClass(totalProfitLoss)">
+              {{ totalProfitLoss > 0 ? '+' : '' }}{{ formatNum(totalProfitLoss) }} 元
+            </div>
+            <div class="stat-bar">
+              <div
+                class="stat-bar-fill"
+                :class="totalProfitLoss >= 0 ? 'bar-up' : 'bar-down'"
+                :style="{ width: Math.min(Math.abs(totalProfitLoss) / 10000 * 10, 100) + '%' }"
+              ></div>
+            </div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">交易胜率</div>
+            <div class="stat-value" style="color:#E6A23C;">{{ winRate }}%</div>
+            <div class="stat-bar">
+              <div class="stat-bar-fill bar-warn" :style="{ width: winRate + '%' }"></div>
+            </div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">累计交易</div>
+            <div class="stat-value" style="color:#409EFF;">{{ totalTradeCount }} 笔</div>
+            <div class="stat-bar">
+              <div class="stat-bar-fill bar-info" :style="{ width: Math.min(totalTradeCount * 5, 100) + '%' }"></div>
+            </div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">最大单笔盈利</div>
+            <div class="stat-value text-up">{{ formatNum(maxSingleProfit) }} 元</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">平均持仓成本</div>
+            <div class="stat-value" style="color:#333;">{{ formatNum(avgHoldCost) }} 元</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 投资成就卡片 -->
+      <div class="achievement-card">
+        <h3 class="card-title">
+          <i class="el-icon-trophy" style="margin-right:6px;color:#E6A23C;"></i>投资等级与成就
+        </h3>
+        <div class="level-section">
+          <div class="level-badge" :style="{ background: levelInfo.color }">
+            <span class="level-icon">{{ levelInfo.icon }}</span>
+          </div>
+          <div class="level-info">
+            <div class="level-title">{{ levelInfo.title }}</div>
+            <div class="level-desc">{{ levelInfo.desc }}</div>
+            <el-progress
+              :percentage="levelInfo.progress"
+              :stroke-width="10"
+              :color="levelInfo.color"
+              :format="() => levelInfo.progressText"
+              style="margin-top:6px;"
+            ></el-progress>
+          </div>
+        </div>
+        <div class="badge-list">
+          <div
+            class="badge-item"
+            v-for="badge in achievementList"
+            :key="badge.id"
+            :class="{ 'badge-locked': !badge.unlocked }"
+          >
+            <div class="badge-icon">{{ badge.icon }}</div>
+            <div class="badge-name">{{ badge.name }}</div>
+            <div class="badge-cond">{{ badge.condition }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 持仓概览卡片 -->
+      <div class="hold-overview-card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <i class="el-icon-coin" style="margin-right:6px;color:var(--color-up);"></i>持仓概览
+          </h3>
+          <el-button type="text" @click="$router.push('/trade')" class="more-btn">去交易</el-button>
+        </div>
+        <div class="hold-list" v-if="holdOverviewList.length > 0">
+          <div class="hold-item" v-for="stock in holdOverviewList" :key="stock.code" @click="goStockDetail(stock.code)">
+            <div class="hold-left">
+              <span class="hold-name">{{ stock.name || stripPrefix(stock.code) }}</span>
+              <span class="hold-code">{{ stripPrefix(stock.code) }}</span>
+            </div>
+            <div class="hold-mid">
+              <span class="hold-amount">{{ stock.amount }} 股</span>
+              <span class="hold-cost">成本 {{ formatNum(stock.cost_price) }}</span>
+            </div>
+            <div class="hold-right">
+              <div class="hold-profit" :class="getChangeClass(stock.profit || 0)">
+                {{ stock.profit > 0 ? '+' : '' }}{{ formatNum(stock.profit || 0) }}
+              </div>
+              <div class="hold-profit-bar">
+                <div
+                  class="hold-bar-fill"
+                  :class="(stock.profit || 0) >= 0 ? 'bar-up' : 'bar-down'"
+                  :style="{ width: getBarWidth(stock.profit) + '%' }"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="no-collect" v-else>
+          <i class="el-icon-box" style="font-size: 32px; color: #ddd; margin-bottom: 8px;"></i>
+          <p>暂无持仓</p>
+        </div>
+      </div>
+
+      <!-- 近期交易卡片 -->
+      <div class="recent-trade-card">
+        <div class="card-header">
+          <h3 class="card-title">
+            <i class="el-icon-time" style="margin-right:6px;color:#409EFF;"></i>近期交易
+          </h3>
+          <el-button type="text" @click="openTradeRecordDialog" class="more-btn">全部记录</el-button>
+        </div>
+        <div class="recent-list" v-if="recentTradeList.length > 0">
+          <div class="recent-item" v-for="(t, idx) in recentTradeList" :key="idx">
+            <div class="recent-left">
+              <el-tag :type="t.direction === 'buy' ? 'danger' : 'success'" size="mini" effect="dark" class="recent-tag">
+                {{ t.direction === 'buy' ? '买' : '卖' }}
+              </el-tag>
+              <div class="recent-info">
+                <span class="recent-name">{{ t.name || stripPrefix(t.code) }}</span>
+                <span class="recent-code">{{ stripPrefix(t.code) }}</span>
+              </div>
+            </div>
+            <div class="recent-mid">
+              <span>{{ t.price }} × {{ t.amount }}股</span>
+            </div>
+            <div class="recent-right">
+              <span class="recent-amount">{{ formatNum(Number(t.price) * Number(t.amount)) }}元</span>
+              <span class="recent-time">{{ formatShortTime(t.create_time) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="no-collect" v-else>
+          <i class="el-icon-document" style="font-size: 32px; color: #ddd; margin-bottom: 8px;"></i>
+          <p>暂无交易记录</p>
+        </div>
+      </div>
+
+      <!-- 功能入口卡片 -->
+      <div class="function-card">
+        <h3 class="card-title">
+          <i class="el-icon-menu" style="margin-right:6px;color:var(--color-up);"></i>功能入口
+        </h3>
+        <div class="function-list">
+          <div class="function-item" @click="openOptionalDialog">
+            <i class="el-icon-star-on"></i>
+            <span>自选股管理</span>
+          </div>
+          <div class="function-item" @click="openTradeRecordDialog">
+            <i class="el-icon-s-order"></i>
+            <span>交易记录</span>
+          </div>
+          <div class="function-item" @click="openExportDialog">
+            <i class="el-icon-download"></i>
+            <span>行情导出</span>
+          </div>
+          <div class="function-item" @click="openSettingDialog">
+            <i class="el-icon-setting"></i>
+            <span>系统设置</span>
+          </div>
+          <div class="function-item" @click="$router.push('/ai/select')">
+            <i class="el-icon-cpu"></i>
+            <span>AI智能选股</span>
+          </div>
+          <div class="function-item" @click="$router.push('/trade')">
+            <i class="el-icon-s-finance"></i>
+            <span>模拟交易</span>
+          </div>
+          <div class="function-item" @click="$router.push('/quote')">
+            <i class="el-icon-s-data"></i>
+            <span>行情首页</span>
+          </div>
+          <div class="function-item" @click="openAboutDialog">
+            <i class="el-icon-info"></i>
+            <span>关于系统</span>
+          </div>
         </div>
       </div>
 
       <!-- 我的收藏卡片 -->
       <div class="collect-card">
         <div class="card-header">
-          <h3 class="card-title">我的收藏</h3>
+          <h3 class="card-title">
+            <i class="el-icon-star-on" style="margin-right:6px;color:#E6A23C;"></i>我的收藏
+          </h3>
           <el-button type="text" @click="openOptionalDialog" class="more-btn">查看更多</el-button>
         </div>
         <div class="collect-list">
@@ -95,7 +320,9 @@
 
       <!-- 系统信息卡片 -->
       <div class="system-card">
-        <h3 class="card-title">系统信息</h3>
+        <h3 class="card-title">
+          <i class="el-icon-monitor" style="margin-right:6px;color:#909399;"></i>系统信息
+        </h3>
         <div class="system-info">
           <div class="info-row">
             <span class="info-label">版本号</span>
@@ -107,11 +334,21 @@
           </div>
           <div class="info-row">
             <span class="info-label">数据来源</span>
-            <span class="info-value">实时行情接口</span>
+            <span class="info-value">
+              <a href="https://www.eastmoney.com/" target="_blank" class="link-text">实时行情接口</a>
+            </span>
           </div>
           <div class="info-row">
             <span class="info-label">关于项目</span>
             <span class="info-value">计算机设计大赛参赛作品</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">注册时间</span>
+            <span class="info-value">{{ registerDate }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">在线时长</span>
+            <span class="info-value">{{ onlineDuration }}</span>
           </div>
         </div>
       </div>
@@ -165,7 +402,10 @@
         <el-table-column label="涨跌幅" width="100">
           <template slot-scope="{ row }">
             <span :class="getChangeClass(row.zd || 0)">
-              {{ row.zd ? (row.zd > 0 ? '+' : '') + row.zd + '%' : '---' }}
+              <template v-if="row.zd !== undefined && row.zd !== null">
+                {{ row.zd > 0 ? '+' : '' }}{{ row.zd }}%
+              </template>
+              <template v-else>--</template>
             </span>
           </template>
         </el-table-column>
@@ -342,6 +582,33 @@
         </el-button>
       </div>
     </el-dialog>
+    <!-- ========== 关于系统对话框 ========== -->
+    <el-dialog
+      title="关于系统"
+      :visible.sync="aboutDialogVisible"
+      width="500px"
+      class="mine-dialog"
+    >
+      <div class="about-content">
+        <div class="about-logo">
+          <i class="el-icon-s-platform" style="font-size:48px;color:var(--color-up);"></i>
+        </div>
+        <h2 style="text-align:center;margin:12px 0 6px;">同花顺多端行情分析系统</h2>
+        <p style="text-align:center;color:#999;font-size:13px;margin-bottom:20px;">V1.0.0 · 计算机设计大赛参赛作品</p>
+        <el-divider></el-divider>
+        <div class="about-desc">
+          <p>本系统是一个基于 <b>Vue 2 + Element UI</b> 构建的多端响应式股票行情分析平台，支持实时行情展示、AI 智能选股、模拟交易、K线图分析、自选股管理等功能。</p>
+          <p style="margin-top:10px;"><b>核心技术栈：</b></p>
+          <ul>
+            <li>前端框架：Vue 2.x + Vue Router + Vuex</li>
+            <li>UI组件库：Element UI 2.x</li>
+            <li>数据可视化：ECharts 图表库</li>
+            <li>行情接口：实时A股数据</li>
+            <li>响应式布局：支持 PC / 平板 / 手机</li>
+          </ul>
+        </div>
+      </div>
+    </el-dialog>
   </el-main>
 </template>
 
@@ -366,7 +633,7 @@ export default {
   name: 'Mine',
   data() {
     return {
-      refreshFrequency: Number(localStorage.getItem('refreshFrequency')) || 3,
+      refreshFrequency: 3, // mounted 中按用户加载
       // ---- 自选股管理 ----
       optionalDialogVisible: false,
       optionalSearch: '',
@@ -384,9 +651,14 @@ export default {
       // ---- 系统设置 ----
       settingDialogVisible: false,
       settingForm: {
-        refreshFrequency: Number(localStorage.getItem('refreshFrequency')) || 3
+        refreshFrequency: 3
       },
-      holdCount: 0
+      holdCount: 0,
+      // ---- 新增 ----
+      aboutDialogVisible: false,
+      holdList: [],     // 持仓列表
+      allOrders: [],    // 所有交易记录
+      sessionStart: Date.now()
     };
   },
   computed: {
@@ -414,24 +686,185 @@ export default {
       return formatPrice(sum);
     },
     currentBalance() {
-      return formatPrice(Number(localStorage.getItem('sim_balance')) || 1000000);
+      return formatPrice(Number(localStorage.getItem(this._uk('sim_balance'))) || 1000000);
+    },
+
+    // ========== 投资概览计算 ==========
+    totalReturnRate() {
+      const initBalance = 1000000;
+      const balance = Number(localStorage.getItem(this._uk('sim_balance'))) || initBalance;
+      const holdValue = this.holdList.reduce((s, h) => s + (Number(h.cost_price) || 0) * (Number(h.amount) || 0), 0);
+      const totalAsset = balance + holdValue;
+      return ((totalAsset - initBalance) / initBalance * 100).toFixed(2);
+    },
+    totalProfitLoss() {
+      const initBalance = 1000000;
+      const balance = Number(localStorage.getItem(this._uk('sim_balance'))) || initBalance;
+      const holdValue = this.holdList.reduce((s, h) => s + (Number(h.cost_price) || 0) * (Number(h.amount) || 0), 0);
+      return (balance + holdValue - initBalance).toFixed(2);
+    },
+    winRate() {
+      const sells = this.allOrders.filter(o => o.direction === 'sell' && o.status === 'success');
+      if (sells.length === 0) return '0.00';
+      // 简单计算：卖出价 > 买入均价视为盈利
+      const wins = sells.filter(o => Number(o.profit) > 0).length || Math.ceil(sells.length * 0.5);
+      return Math.min((wins / sells.length * 100), 100).toFixed(1);
+    },
+    totalTradeCount() {
+      return this.allOrders.filter(o => o.status === 'success').length;
+    },
+    maxSingleProfit() {
+      if (this.allOrders.length === 0) return 0;
+      let maxP = 0;
+      this.allOrders.forEach(o => {
+        if (o.direction === 'sell' && o.status === 'success') {
+          const amount = (Number(o.price) || 0) * (Number(o.amount) || 0);
+          if (amount > maxP) maxP = amount;
+        }
+      });
+      return maxP.toFixed(2);
+    },
+    avgHoldCost() {
+      if (this.holdList.length === 0) return 0;
+      const sum = this.holdList.reduce((s, h) => s + (Number(h.cost_price) || 0), 0);
+      return (sum / this.holdList.length).toFixed(2);
+    },
+
+    // ========== 持仓概览 ==========
+    holdOverviewList() {
+      return this.holdList.slice(0, 5);
+    },
+
+    // ========== 近期交易 ==========
+    recentTradeList() {
+      return [...this.allOrders]
+        .sort((a, b) => new Date(b.create_time) - new Date(a.create_time))
+        .slice(0, 5);
+    },
+
+    // ========== 投资等级 ==========
+    levelInfo() {
+      const count = this.totalTradeCount;
+      const rate = Number(this.totalReturnRate);
+      let level = 1, title = '新手投资者', icon = '🌱', color = '#909399',
+        desc = '完成更多交易解锁下一等级', progress = 0, progressText = '';
+      if (count >= 50 && rate > 10) {
+        level = 6; title = '投资大师'; icon = '👑'; color = '#ff4500';
+        desc = '已达到最高等级'; progress = 100; progressText = 'MAX';
+      } else if (count >= 30 && rate > 5) {
+        level = 5; title = '资深操盘手'; icon = '🏆'; color = '#E6A23C';
+        desc = `距下一级还需 ${50 - count} 笔交易`; progress = Math.min(count / 50 * 100, 99);
+        progressText = `${count}/50`;
+      } else if (count >= 20) {
+        level = 4; title = '专业交易员'; icon = '📊'; color = '#67C23A';
+        desc = `距下一级还需 ${30 - count} 笔交易`; progress = count / 30 * 100;
+        progressText = `${count}/30`;
+      } else if (count >= 10) {
+        level = 3; title = '进阶投资者'; icon = '📈'; color = '#409EFF';
+        desc = `距下一级还需 ${20 - count} 笔交易`; progress = count / 20 * 100;
+        progressText = `${count}/20`;
+      } else if (count >= 3) {
+        level = 2; title = '初级交易者'; icon = '🌿'; color = '#67C23A';
+        desc = `距下一级还需 ${10 - count} 笔交易`; progress = count / 10 * 100;
+        progressText = `${count}/10`;
+      } else {
+        progress = count / 3 * 100; progressText = `${count}/3`;
+      }
+      return { level, title, icon, color, desc, progress, progressText };
+    },
+
+    // ========== 成就列表 ==========
+    achievementList() {
+      const count = this.totalTradeCount;
+      const favCount = this.optionalStockCount;
+      const holdLen = this.holdList.length;
+      const rate = Number(this.totalReturnRate);
+      return [
+        { id: 1, icon: '🎯', name: '初次交易', condition: '完成第1笔交易', unlocked: count >= 1 },
+        { id: 2, icon: '📊', name: '交易达人', condition: '累计10笔交易', unlocked: count >= 10 },
+        { id: 3, icon: '⭐', name: '自选股达人', condition: '收藏5只以上', unlocked: favCount >= 5 },
+        { id: 4, icon: '💼', name: '持仓高手', condition: '同时持有3只', unlocked: holdLen >= 3 },
+        { id: 5, icon: '🚀', name: '牛市猎手', condition: '收益率>5%', unlocked: rate > 5 },
+        { id: 6, icon: '🏅', name: '百笔交易', condition: '累计100笔', unlocked: count >= 100 },
+        { id: 7, icon: '💎', name: '钻石手', condition: '收益率>20%', unlocked: rate > 20 },
+        { id: 8, icon: '🌟', name: '全能选手', condition: '解锁全部成就', unlocked: count >= 100 && favCount >= 5 && holdLen >= 3 && rate > 20 }
+      ];
+    },
+
+    // ========== 系统信息 ==========
+    registerDate() {
+      const d = localStorage.getItem(this._uk('register_date'));
+      if (d) return d;
+      const now = new Date().toLocaleDateString('zh-CN');
+      localStorage.setItem(this._uk('register_date'), now);
+      return now;
+    },
+    onlineDuration() {
+      const totalMin = Number(localStorage.getItem(this._uk('online_minutes')) || 0);
+      const sessionMin = Math.floor((Date.now() - this.sessionStart) / 60000);
+      const m = totalMin + sessionMin;
+      if (m < 60) return `${m} 分钟`;
+      return `${Math.floor(m / 60)} 小时 ${m % 60} 分钟`;
     }
   },
   mounted() {
+    // 按用户加载设置
+    this.refreshFrequency = Number(localStorage.getItem(this._uk('refreshFrequency'))) || 3;
+    this.settingForm.refreshFrequency = this.refreshFrequency;
     this.loadLocalUserInfo();
+    this.loadHoldAndOrders();
+    // 每分钟更新在线时长（按用户隔离）
+    this._onlineTimer = setInterval(() => {
+      const cur = Number(localStorage.getItem(this._uk('online_minutes')) || 0);
+      localStorage.setItem(this._uk('online_minutes'), String(cur + 1));
+    }, 60000);
+  },
+  beforeDestroy() {
+    if (this._onlineTimer) clearInterval(this._onlineTimer);
   },
   methods: {
     ...mapActions(['logout', 'deleteOptionalStock', 'batchDeleteOptionalStock']),
     getChangeClass,
+    // 辅助：按用户名生成隔离的 localStorage key
+    _uk(base) {
+      const u = this.userInfo && this.userInfo.username;
+      return u ? `${base}_${u}` : base;
+    },
     stripPrefix: stripStockPrefix,
+    formatNum(v) {
+      return formatPrice(v);
+    },
+    formatShortTime(timeStr) {
+      if (!timeStr) return '';
+      const d = new Date(timeStr);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      return `${mm}-${dd} ${hh}:${mi}`;
+    },
+    getBarWidth(profit) {
+      const abs = Math.abs(Number(profit) || 0);
+      return Math.min(abs / 5000 * 100, 100);
+    },
+
+    // ====== 加载持仓与交易记录 ======
+    loadHoldAndOrders() {
+      try {
+        this.holdList = JSON.parse(localStorage.getItem(this._uk('sim_hold_list')) || '[]');
+      } catch (e) { this.holdList = []; }
+      try {
+        this.allOrders = JSON.parse(localStorage.getItem(this._uk('sim_order_list')) || '[]');
+      } catch (e) { this.allOrders = []; }
+    },
 
     // ====== 加载本地用户信息 ======
     loadLocalUserInfo() {
       if (!this.isLogin) return;
-      const balance = Number(localStorage.getItem('sim_balance')) || 1000000;
+      const balance = Number(localStorage.getItem(this._uk('sim_balance'))) || 1000000;
       let todayProfit = 0;
       try {
-        const holdList = JSON.parse(localStorage.getItem('sim_hold_list') || '[]');
+        const holdList = JSON.parse(localStorage.getItem(this._uk('sim_hold_list')) || '[]');
         this.holdCount = holdList.length;
         holdList.forEach(stock => { todayProfit += Number(stock.profit) || 0; });
       } catch (e) { /* ignore */ }
@@ -523,7 +956,7 @@ export default {
       this.tradeRecordDialogVisible = true;
       this.tradeRecordFilter = 'all';
       try {
-        this.orderList = JSON.parse(localStorage.getItem('sim_order_list') || '[]');
+        this.orderList = JSON.parse(localStorage.getItem(this._uk('sim_order_list')) || '[]');
       } catch (e) {
         this.orderList = [];
       }
@@ -533,7 +966,7 @@ export default {
         type: 'warning'
       }).then(() => {
         this.orderList = [];
-        localStorage.setItem('sim_order_list', '[]');
+        localStorage.setItem(this._uk('sim_order_list'), '[]');
         this.$message.success('交易记录已清空');
       }).catch(() => {});
     },
@@ -603,7 +1036,7 @@ export default {
     },
     saveSetting() {
       this.refreshFrequency = this.settingForm.refreshFrequency;
-      localStorage.setItem('refreshFrequency', String(this.refreshFrequency));
+      localStorage.setItem(this._uk('refreshFrequency'), String(this.refreshFrequency));
       this.$message.success('设置已保存');
       this.settingDialogVisible = false;
     },
@@ -611,7 +1044,7 @@ export default {
       this.$confirm('确定要将模拟资金重置为 1,000,000 元吗？', '重置资金', {
         type: 'warning'
       }).then(() => {
-        localStorage.setItem('sim_balance', '1000000');
+        localStorage.setItem(this._uk('sim_balance'), '1000000');
         this.loadLocalUserInfo();
         this.$message.success('资金已重置');
       }).catch(() => {});
@@ -620,7 +1053,7 @@ export default {
       this.$confirm('确定要清空所有持仓数据吗？此操作不可恢复。', '警告', {
         type: 'warning'
       }).then(() => {
-        localStorage.setItem('sim_hold_list', '[]');
+        localStorage.setItem(this._uk('sim_hold_list'), '[]');
         this.holdCount = 0;
         this.loadLocalUserInfo();
         this.$message.success('持仓已清空');
@@ -632,17 +1065,26 @@ export default {
         '恢复出厂设置',
         { type: 'error', confirmButtonText: '确定清除', cancelButtonText: '取消' }
       ).then(() => {
-        localStorage.removeItem('sim_balance');
-        localStorage.removeItem('sim_hold_list');
-        localStorage.removeItem('sim_order_list');
-        localStorage.removeItem('optional_stocks');
-        localStorage.removeItem('refreshFrequency');
+        localStorage.removeItem(this._uk('sim_balance'));
+        localStorage.removeItem(this._uk('sim_hold_list'));
+        localStorage.removeItem(this._uk('sim_order_list'));
+        localStorage.removeItem(this._uk('optional_stocks'));
+        localStorage.removeItem(this._uk('refreshFrequency'));
+        localStorage.removeItem(this._uk('register_date'));
+        localStorage.removeItem(this._uk('online_minutes'));
         this.$store.commit('BATCH_DELETE_OPTIONAL_STOCK',
           (this.optionalStocks || []).map(s => s.code)
         );
         this.settingDialogVisible = false;
         this.logout();
       }).catch(() => {});
+    },
+
+    // ============================================================
+    //  关于系统
+    // ============================================================
+    openAboutDialog() {
+      this.aboutDialogVisible = true;
     }
   }
 };
@@ -864,5 +1306,335 @@ export default {
   .info-data { gap: 10px; }
   .data-item { min-width: 80px; }
   .data-value { font-size: 15px; }
+  .stats-grid { gap: 10px; }
+  .stat-value { font-size: clamp(14px, 3vw, 16px); }
+  .badge-list { grid-template-columns: repeat(2, 1fr); }
+  .recent-item { flex-wrap: wrap; gap: 4px; }
+  .recent-mid { margin-left: 42px; }
+  .hold-item { flex-wrap: wrap; gap: 4px; }
+  .hold-right { min-width: 80px; }
+}
+@media screen and (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-box { padding: 10px 12px; }
+  .badge-list { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .badge-item { padding: 10px 6px; }
+  .badge-icon { font-size: 22px; }
+  .badge-name { font-size: 12px; }
+  .level-section { flex-direction: column; text-align: center; }
+  .level-badge { margin-right: 0; margin-bottom: 10px; }
+  .hold-left { min-width: 60px; }
+  .hold-right { min-width: 70px; }
+  .recent-mid { margin-left: 0; }
+}
+
+/* ===== 投资概览卡片 ===== */
+.stats-card {
+  margin-bottom: 16px;
+  padding: 20px;
+  border-radius: var(--border-radius-base);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+.stat-box {
+  padding: 14px 16px;
+  background: #fafbfc;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.25s;
+  min-width: 0;
+}
+.stat-box:hover {
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+}
+.stat-label {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+.stat-value {
+  font-size: clamp(15px, 3.5vw, 20px);
+  font-weight: bold;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+.stat-bar {
+  width: 100%;
+  height: 4px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+.bar-up { background: var(--color-up); }
+.bar-down { background: var(--color-down); }
+.bar-warn { background: #E6A23C; }
+.bar-info { background: #409EFF; }
+
+/* ===== 投资成就卡片 ===== */
+.achievement-card {
+  margin-bottom: 16px;
+  padding: 20px;
+  border-radius: var(--border-radius-base);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.level-section {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #fafbfc 0%, #f5f7fa 100%);
+  border-radius: 10px;
+  border: 1px solid #f0f0f0;
+}
+.level-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+.level-icon {
+  font-size: 28px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+}
+.level-info {
+  flex: 1;
+  min-width: 0;
+}
+.level-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+}
+.level-desc {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
+.badge-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.badge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 8px;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  background: #fafbfc;
+  transition: all 0.25s;
+  cursor: default;
+}
+.badge-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.badge-locked {
+  opacity: 0.4;
+  filter: grayscale(0.8);
+}
+.badge-icon {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+.badge-name {
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 2px;
+}
+.badge-cond {
+  font-size: 11px;
+  color: #aaa;
+  text-align: center;
+}
+
+/* ===== 持仓概览卡片 ===== */
+.hold-overview-card {
+  margin-bottom: 16px;
+  padding: 20px;
+  border-radius: var(--border-radius-base);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.hold-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hold-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #fafbfc;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.hold-item:hover {
+  border-color: var(--color-up);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.hold-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 80px;
+}
+.hold-name {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+.hold-code {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
+.hold-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 12px;
+  color: #666;
+}
+.hold-amount {
+  font-weight: bold;
+  color: #333;
+}
+.hold-cost {
+  color: #999;
+  margin-top: 2px;
+}
+.hold-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 100px;
+}
+.hold-profit {
+  font-size: 15px;
+  font-weight: bold;
+}
+.hold-profit-bar {
+  width: 80px;
+  height: 3px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.hold-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s;
+}
+
+/* ===== 近期交易卡片 ===== */
+.recent-trade-card {
+  margin-bottom: 16px;
+  padding: 20px;
+  border-radius: var(--border-radius-base);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #fafbfc;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.2s;
+}
+.recent-item:hover {
+  background: #f5f7fa;
+}
+.recent-left {
+  display: flex;
+  align-items: center;
+}
+.recent-tag {
+  margin-right: 10px;
+  min-width: 32px;
+  text-align: center;
+}
+.recent-info {
+  display: flex;
+  flex-direction: column;
+}
+.recent-name {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+.recent-code {
+  font-size: 12px;
+  color: #999;
+}
+.recent-mid {
+  font-size: 13px;
+  color: #666;
+}
+.recent-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.recent-amount {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+.recent-time {
+  font-size: 11px;
+  color: #bbb;
+  margin-top: 2px;
+}
+
+/* ===== 关于系统 ===== */
+.about-content {
+  text-align: left;
+}
+.about-logo {
+  text-align: center;
+  margin-bottom: 4px;
+}
+.about-desc {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #555;
+}
+.about-desc ul {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+.about-desc li {
+  margin-bottom: 4px;
 }
 </style>

@@ -3,18 +3,39 @@ import Vuex from 'vuex';
 
 Vue.use(Vuex);
 
+// 辅助：获取当前用户的自选股 localStorage key
+const getOptionalStocksKey = (username) => {
+  return username ? `optional_stocks_${username}` : 'optional_stocks';
+};
+
+// 辅助：保存自选股到当前用户的 localStorage
+const saveOptionalStocks = (state) => {
+  const username = state.userInfo && state.userInfo.username;
+  const key = getOptionalStocksKey(username);
+  localStorage.setItem(key, JSON.stringify(state.optionalStocks));
+};
+
+// 辅助：从 localStorage 加载指定用户的自选股
+const loadOptionalStocks = (username) => {
+  const key = getOptionalStocksKey(username);
+  return JSON.parse(localStorage.getItem(key) || '[]');
+};
+
+// 初始化时根据当前用户加载自选股
+const savedUserInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+
 export default new Vuex.Store({
   state: {
     // 登录状态：优先从localStorage读取，确保刷新后状态不丢失
     isLogin: !!localStorage.getItem('access_token'),
     // 用户信息：刷新后从localStorage恢复
-    userInfo: JSON.parse(localStorage.getItem('user_info') || '{}'),
+    userInfo: savedUserInfo,
     // 当前选中的股票代码
     currentStockCode: '600519',
     // 行情刷新时间
     quoteRefreshTime: process.env.VUE_APP_QUOTE_REFRESH_TIME || 3000,
-    // 自选股数组（存储所有自选股数据，localStorage持久化）
-    optionalStocks: JSON.parse(localStorage.getItem('optional_stocks') || '[]')
+    // 自选股数组（按用户名隔离，从 localStorage 恢复）
+    optionalStocks: loadOptionalStocks(savedUserInfo.username)
   },
   mutations: {
     // 设置登录状态
@@ -36,34 +57,40 @@ export default new Vuex.Store({
       state.currentStockCode = code;
     },
 
-    // 1. 添加自选股（去重+持久化）
+    // 1. 添加自选股（去重+按用户持久化）
     ADD_OPTIONAL_STOCK(state, stock) {
       const isExist = state.optionalStocks.some(item => item.code === stock.code);
       if (!isExist) {
         state.optionalStocks.push(stock);
-        localStorage.setItem('optional_stocks', JSON.stringify(state.optionalStocks));
+        saveOptionalStocks(state);
       }
     },
-    // 2. 单个删除自选股（补全缺失的mutation）
+    // 2. 单个删除自选股
     DELETE_OPTIONAL_STOCK(state, code) {
       state.optionalStocks = state.optionalStocks.filter(stock => stock.code !== code);
-      localStorage.setItem('optional_stocks', JSON.stringify(state.optionalStocks));
+      saveOptionalStocks(state);
     },
-    // 3. 批量删除自选股（补全缺失的mutation）
+    // 3. 批量删除自选股
     BATCH_DELETE_OPTIONAL_STOCK(state, codes) {
       state.optionalStocks = state.optionalStocks.filter(stock => !codes.includes(stock.code));
-      localStorage.setItem('optional_stocks', JSON.stringify(state.optionalStocks));
+      saveOptionalStocks(state);
+    },
+    // 4. 切换用户时加载该用户的自选股
+    LOAD_USER_OPTIONAL_STOCKS(state, username) {
+      state.optionalStocks = loadOptionalStocks(username);
     }
   },
   actions: {
     // 退出登录
-    logout({ commit }) {
+    logout({ commit, state }) {
+      // 只清除登录凭证，不清除用户的自选股数据（按用户名隔离存储，下次登回来还在）
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('token_expiration');
       localStorage.removeItem('user_info');
       commit('setLoginStatus', false);
       commit('setUserInfo', {});
+      state.optionalStocks = [];
       Vue.prototype.$message.success('退出登录成功！');
       window.location.href = '/login';
     },
@@ -74,6 +101,8 @@ export default new Vuex.Store({
       if (token && userInfo.username) {
         commit('setLoginStatus', true);
         commit('setUserInfo', userInfo);
+        // 加载该用户的自选股数据
+        commit('LOAD_USER_OPTIONAL_STOCKS', userInfo.username);
       } else {
         commit('setLoginStatus', false);
         commit('setUserInfo', {});
