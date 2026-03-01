@@ -1,5 +1,5 @@
 <template>
-  <el-aside :width="`var(--right-aside-width)`" class="right-aside hide-on-mobile" style="background: #fff; border-left: 1px solid var(--color-border); height: calc(100vh - 60px); overflow-y: auto;">
+  <el-aside :width="`var(--right-aside-width)`" class="right-aside hide-on-mobile">
     <!-- 财经快讯模块（新增分类筛选+已读标记） -->
     <div class="aside-module">
       <div class="module-header">
@@ -496,6 +496,11 @@ export default {
 <style scoped>
 .right-aside {
   --right-aside-width: 300px;
+  background: var(--color-sidebar-bg, #fff);
+  border-left: 1px solid var(--color-border);
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+  transition: background 0.3s, border-color 0.3s;
 }
 .aside-module {
   padding: 15px;
@@ -510,7 +515,7 @@ export default {
 .module-title {
   font-size: 16px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text, #333);
   margin: 0;
 }
 .header-actions {
@@ -541,13 +546,13 @@ export default {
 }
 .news-time {
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-secondary, #999);
   min-width: 50px;
   flex-shrink: 0;
 }
 .news-content {
   font-size: 13px;
-  color: #333;
+  color: var(--color-text, #333);
   flex: 1;
   margin: 0 8px;
   line-height: 1.4;
@@ -605,11 +610,11 @@ export default {
 }
 .hot-stock-item .stock-code {
   font-size: 13px;
-  color: #333;
+  color: var(--color-text, #333);
 }
 .hot-stock-item .stock-name {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary, #666);
   word-break: break-all;
   white-space: normal;
   display: block;
@@ -621,13 +626,13 @@ export default {
 }
 .hot-stock-item .price {
   font-size: 13px;
-  color: #333;
+  color: var(--color-text, #333);
   display: block;
 }
 /* 交易提醒样式（新增休市提示+倒计时） */
 .trade-reminder {
   padding: 10px;
-  background-color: #f8f9fa;
+  background-color: var(--color-card-bg, #f8f9fa);
   border-radius: 4px;
 }
 .holiday-tip {
@@ -636,7 +641,7 @@ export default {
   justify-content: center;
   padding: 15px 0;
   color: #e53935;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--color-border, #e9ecef);
   margin-bottom: 10px;
 }
 .holiday-icon {
@@ -653,12 +658,12 @@ export default {
 }
 .time-label {
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary, #666);
 }
 .time-value {
   font-size: 13px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text, #333);
 }
 .countdown-item {
   display: flex;

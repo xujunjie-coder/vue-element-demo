@@ -15,13 +15,18 @@ html, body, #app {
 
 /* 全局 CSS 变量（唯一来源） */
 :root {
-  /* 色彩 */
+  /* 色彩 - 亮色模式 */
   --color-up: #e53935;
   --color-down: #2f9b56;
   --color-neutral: #666;
   --color-bg: #f5f7fa;
   --color-border: #e5e6eb;
   --color-card-bg: #fff;
+  --color-text: #333;
+  --color-text-secondary: #666;
+  --color-header-bg: #fff;
+  --color-sidebar-bg: #fff;
+  --color-menu-hover: #f5f7fa;
   /* 字号 */
   --font-size-pc: 14px;
   --font-size-tablet: 13px;
@@ -48,6 +53,21 @@ html, body, #app {
   }
   --header-height: 60px;
   --footer-height: auto;
+}
+
+/* 深色主题 CSS 变量 */
+[data-theme="dark"] {
+  /* 仿登录页/404页深蓝风格 */
+  --color-bg: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  --color-bg-solid: #1e3c72;
+  --color-border: rgba(255, 255, 255, 0.15);
+  --color-card-bg: rgba(255, 255, 255, 0.1);
+  --color-text: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-header-bg: rgba(30, 60, 114, 0.95);
+  --color-sidebar-bg: rgba(30, 60, 114, 0.9);
+  --color-menu-hover: rgba(255, 255, 255, 0.1);
+  --color-neutral: rgba(255, 255, 255, 0.6);
 }
 
 /* 通用卡片 */
@@ -103,4 +123,220 @@ html, body, #app {
 /* 核心数据字体 */
 .data-text {
   font-weight: bold;
+}
+
+/* ============================================================
+   深色主题全局样式适配
+   ============================================================ */
+
+/* 深色主题 - 背景 */
+[data-theme="dark"] body,
+[data-theme="dark"] #app {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* 深色主题 - 卡片 */
+[data-theme="dark"] .card-container {
+  background: var(--color-card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* 深色主题 - ElementUI 组件适配 */
+[data-theme="dark"] .el-header {
+  background: var(--color-header-bg) !important;
+  border-bottom-color: var(--color-border) !important;
+  backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .el-aside {
+  background: var(--color-sidebar-bg) !important;
+  backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .el-main {
+  background: transparent !important;
+}
+
+[data-theme="dark"] .el-menu {
+  background-color: transparent !important;
+}
+
+[data-theme="dark"] .el-menu-item,
+[data-theme="dark"] .el-submenu__title {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-menu-item:hover,
+[data-theme="dark"] .el-submenu__title:hover {
+  background-color: var(--color-menu-hover) !important;
+}
+
+[data-theme="dark"] .el-menu-item.is-active {
+  color: #64b5f6 !important;
+  background-color: rgba(100, 181, 246, 0.15) !important;
+}
+
+[data-theme="dark"] .el-input__inner {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-input__inner::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+[data-theme="dark"] .el-select-dropdown {
+  background: rgba(30, 60, 114, 0.95) !important;
+  border-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .el-select-dropdown__item {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-select-dropdown__item.hover,
+[data-theme="dark"] .el-select-dropdown__item:hover {
+  background-color: var(--color-menu-hover) !important;
+}
+
+[data-theme="dark"] .el-table {
+  background-color: transparent !important;
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-table th,
+[data-theme="dark"] .el-table tr {
+  background-color: transparent !important;
+}
+
+[data-theme="dark"] .el-table td,
+[data-theme="dark"] .el-table th.is-leaf {
+  border-bottom-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .el-table--enable-row-hover .el-table__body tr:hover > td {
+  background-color: var(--color-menu-hover) !important;
+}
+
+[data-theme="dark"] .el-table__empty-text {
+  color: var(--color-text-secondary) !important;
+}
+
+[data-theme="dark"] .el-button--text {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-button--primary {
+  background: linear-gradient(90deg, #64b5f6 0%, #2196f3 100%) !important;
+  border-color: #2196f3 !important;
+}
+
+[data-theme="dark"] .el-dropdown-menu {
+  background: rgba(30, 60, 114, 0.95) !important;
+  border-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .el-dropdown-menu__item {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-dropdown-menu__item:hover {
+  background-color: var(--color-menu-hover) !important;
+}
+
+[data-theme="dark"] .el-avatar {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-theme="dark"] .el-dialog {
+  background: rgba(30, 60, 114, 0.95) !important;
+  border: 1px solid var(--color-border);
+}
+
+[data-theme="dark"] .el-dialog__title {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-dialog__body {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-form-item__label {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-checkbox__label {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-radio__label {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-message-box {
+  background: rgba(30, 60, 114, 0.95) !important;
+  border-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .el-message-box__title {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-message-box__content {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .el-tooltip__popper {
+  background: rgba(30, 60, 114, 0.95) !important;
+  border-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .el-footer {
+  background: var(--color-header-bg) !important;
+  border-top-color: var(--color-border) !important;
+}
+
+/* 深色主题 - 滚动条 */
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 深色主题 - 文本颜色 */
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6,
+[data-theme="dark"] p,
+[data-theme="dark"] span,
+[data-theme="dark"] div,
+[data-theme="dark"] label {
+  color: inherit;
+}
+
+/* 深色主题 - 用户名和下拉菜单 */
+[data-theme="dark"] .user-name {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .dropdown-link {
+  color: var(--color-text) !important;
+}
+
+/* 深色主题 - 保持涨跌颜色不变 */
+[data-theme="dark"] .text-up {
+  color: #ff6b6b !important;
+}
+
+[data-theme="dark"] .text-down {
+  color: #51cf66 !important;
 }

@@ -81,6 +81,8 @@ export default {
     this.$root.$on('toggle-left-drawer', () => {
       this.leftDrawerOpen = !this.leftDrawerOpen;
     });
+    // 初始化主题
+    this.$store.dispatch('initTheme');
   },
   beforeDestroy() {
     window.removeEventListener('resize', this.handleResize);
@@ -152,7 +154,8 @@ export default {
 .el-main {
   padding: var(--spacing-base) !important;
   overflow-y: auto !important;
-  background: var(--color-bg) !important;
+  background: var(--color-bg-solid, var(--color-bg)) !important;
+  transition: background 0.3s;
 }
 .el-footer {
   padding: 0 !important;

@@ -2,8 +2,7 @@
   <!-- 左侧侧边栏容器：固定宽度+垂直滚动，确保在左侧显示 -->
   <el-aside 
     :width="`var(--sidebar-width)`" 
-    class="sidebar" 
-    style="background: #fff; border-right: 1px solid var(--color-border); height: calc(100vh - 60px); overflow-y: auto; float: left;"
+    class="sidebar"
   >
     <!-- 0. 导航菜单（仅在抽屉模式 ≤1090px 显示） -->
     <div class="sidebar-module sidebar-drawer-nav">
@@ -1311,6 +1310,11 @@ export default {
 .sidebar {
   --sidebar-width: 240px;
   float: left; /* 强制左侧浮动，避免被挤到右侧 */
+  background: var(--color-sidebar-bg, #fff);
+  border-right: 1px solid var(--color-border);
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+  transition: background 0.3s, border-color 0.3s;
 }
 
 /* 模块通用样式：上下分隔+内边距 */
@@ -1330,7 +1334,7 @@ export default {
 .module-title {
   font-size: 16px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text, #333);
   margin: 0;
 }
 
@@ -1407,13 +1411,13 @@ export default {
 
 .stock-code {
   font-size: 14px;
-  color: #333;
+  color: var(--color-text, #333);
   font-weight: bold;
 }
 
 .stock-name {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary, #666);
 }
 
 /* 股票价格：右对齐 */
@@ -1468,8 +1472,8 @@ export default {
 }
 
 .statistic-item {
-  background: #fff;
-  border: 1px solid #f0f0f0;
+  background: var(--color-card-bg, #fff);
+  border: 1px solid var(--color-border, #f0f0f0);
   border-radius: 8px;
   padding: 8px;
   min-height: 64px;
@@ -1484,7 +1488,7 @@ export default {
 
 .stat-label {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary, #666);
   margin-top: 6px;
 }
 
@@ -1539,22 +1543,22 @@ export default {
 }
 .tool-name {
   font-size: 13px;
-  color: #333;
+  color: var(--color-text, #333);
   white-space: normal; /* 允许换行，避免截断 */
 }
 .tool-count {
   font-size: 11px;
-  color: #999;
+  color: var(--color-text-secondary, #999);
   margin-top: 2px;
 }
 /* 工具弹窗样式 */
 .tool-result {
   font-size: 15px;
-  color: #333;
+  color: var(--color-text, #333);
 }
 .tool-hint {
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-secondary, #999);
 }
 .tax-detail p {
   margin: 6px 0;

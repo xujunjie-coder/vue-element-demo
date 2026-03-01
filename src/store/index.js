@@ -35,7 +35,9 @@ export default new Vuex.Store({
     // 行情刷新时间
     quoteRefreshTime: process.env.VUE_APP_QUOTE_REFRESH_TIME || 3000,
     // 自选股数组（按用户名隔离，从 localStorage 恢复）
-    optionalStocks: loadOptionalStocks(savedUserInfo.username)
+    optionalStocks: loadOptionalStocks(savedUserInfo.username),
+    // 主题模式：dark / light
+    theme: localStorage.getItem('app_theme') || 'light'
   },
   mutations: {
     // 设置登录状态
@@ -78,6 +80,12 @@ export default new Vuex.Store({
     // 4. 切换用户时加载该用户的自选股
     LOAD_USER_OPTIONAL_STOCKS(state, username) {
       state.optionalStocks = loadOptionalStocks(username);
+    },
+    // 5. 设置主题
+    SET_THEME(state, theme) {
+      state.theme = theme;
+      localStorage.setItem('app_theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
     }
   },
   actions: {
@@ -124,6 +132,15 @@ export default new Vuex.Store({
     // 7. 切换当前股票action（已正确绑定）
     changeStock({ commit }, stock) {
       commit('setCurrentStockCode', stock.code);
+    },
+    // 8. 切换主题
+    toggleTheme({ commit, state }) {
+      const newTheme = state.theme === 'light' ? 'dark' : 'light';
+      commit('SET_THEME', newTheme);
+    },
+    // 9. 初始化主题
+    initTheme({ commit, state }) {
+      document.documentElement.setAttribute('data-theme', state.theme);
     }
   },
   getters: {

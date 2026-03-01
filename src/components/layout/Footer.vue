@@ -28,10 +28,11 @@ export default {
 
 <style scoped>
 .app-footer {
-  background: #fff;
+  background: var(--color-header-bg, #fff);
   border-top: 1px solid var(--color-border);
   padding: 0;
   height: auto !important;
+  transition: background 0.3s, border-color 0.3s;
 }
 
 .footer-container {
@@ -40,7 +41,7 @@ export default {
   align-items: center;
   padding: 12px 20px;
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary, #666);
   flex-wrap: wrap;
   gap: 10px;
 }

@@ -1,5 +1,5 @@
 <template>
-  <el-header style="background: #fff; border-bottom: 1px solid var(--color-border); padding: 0 20px; height: 60px; line-height: 60px;">
+  <el-header class="app-header">
     <div class="header-container">
       <!-- Logo -->
       <div class="logo">
@@ -49,6 +49,16 @@
 
       <!-- 用户信息 -->
       <div class="user-info">
+        <!-- 主题切换按钮 -->
+        <el-tooltip :content="isDarkTheme ? '切换到亮色模式' : '切换到深色模式'" placement="bottom">
+          <el-button
+            type="text"
+            class="theme-toggle-btn"
+            @click="toggleTheme"
+          >
+            <i :class="isDarkTheme ? 'el-icon-sunny' : 'el-icon-moon'"></i>
+          </el-button>
+        </el-tooltip>
         <el-dropdown v-if="isLogin">
           <span class="dropdown-link">
             <el-avatar icon="el-icon-user" size="small"></el-avatar>
@@ -85,7 +95,10 @@ export default {
     };
   },
   computed: {
-    ...mapState(['isLogin', 'userInfo', 'currentStockCode'])
+    ...mapState(['isLogin', 'userInfo', 'currentStockCode', 'theme']),
+    isDarkTheme() {
+      return this.theme === 'dark';
+    }
   },
   mounted() {
     // 新增：初始化登录状态，确保刷新后与localStorage同步
@@ -94,7 +107,7 @@ export default {
     this.initActiveMenu();
   },
   methods: {
-    ...mapActions(['logout', 'initLoginState']),
+    ...mapActions(['logout', 'initLoginState', 'toggleTheme']),
     // 初始化菜单激活状态（新增：解决刷新后菜单激活状态错误）
     initActiveMenu() {
       const currentPath = this.$route.path;
@@ -196,6 +209,15 @@ export default {
 </script>
 
 <style scoped>
+/* Header 容器样式 */
+.app-header {
+  background: var(--color-header-bg, #fff);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 20px;
+  height: 60px;
+  line-height: 60px;
+  transition: background 0.3s, border-color 0.3s;
+}
 .header-container {
   display: flex;
   justify-content: space-between;
@@ -217,7 +239,7 @@ export default {
 }
 .mobile-menu-btn {
   font-size: 20px;
-  color: #333;
+  color: var(--color-text, #333);
 }
 .user-info {
   display: flex;
@@ -230,7 +252,7 @@ export default {
 }
 .user-name {
   margin: 0 8px;
-  color: #333;
+  color: var(--color-text, #333);
 }
 .login-btn {
   color: var(--color-up);
@@ -239,5 +261,17 @@ export default {
 .el-menu-item.is-disabled {
   color: #c0c4cc !important;
   cursor: not-allowed !important;
+}
+/* 主题切换按钮 */
+.theme-toggle-btn {
+  font-size: 20px;
+  padding: 8px;
+  margin-right: 10px;
+  color: var(--color-text);
+  transition: all 0.3s;
+}
+.theme-toggle-btn:hover {
+  color: var(--color-up);
+  transform: rotate(15deg);
 }
 </style>
