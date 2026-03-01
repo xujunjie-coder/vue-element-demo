@@ -1,175 +1,226 @@
 <template>
-  <el-main style="padding: var(--spacing-base); background: var(--color-bg);">
+  <div class="ai-select-stock">
     <div class="card-container">
       <div class="page-header">
         <h2 class="page-title">AI智能选股 <span class="tag">🤖 大赛创新功能</span></h2>
+        <p class="page-desc">输入股票代码，获取AI预测分析结果</p>
       </div>
 
-      <!-- 选股条件配置 -->
-      <div class="select-condition">
-        <el-row :gutter="20" class="condition-row">
-          <el-col :span="8" :xs="24">
-            <el-form-item label="选股策略" label-width="80px">
-              <el-select
-                v-model="selectForm.strategy"
-                placeholder="请选择选股策略"
-                style="width: 100%;"
-              >
-                <el-option
-                  v-for="(val, key) in SelectStrategy"
-                  :key="key"
-                  :label="key === 'VALUE_GROWTH' ? '低估值高成长' : key === 'MA_UP' ? '均线多头排列' : '量价齐升'"
-                  :value="val"
-                ></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8" :xs="24">
-            <el-form-item label="选股数量" label-width="80px">
-              <el-input-number
-                v-model="selectForm.count"
-                :min="5"
-                :max="20"
-                :step="1"
-                :default-value="10"
-                style="width: 100%;"
-              ></el-input-number>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8" :xs="24">
-            <el-form-item label="市场类型" label-width="80px">
-              <el-select
-                v-model="selectForm.market"
-                placeholder="请选择市场类型"
-                style="width: 100%;"
-              >
-                <el-option
-                  v-for="(val, key) in MarketType"
-                  :key="key"
-                  :label="MarketTypeLabel[key] || key"
-                  :value="val"
-                ></el-option>
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <div class="select-btn">
-          <el-button
-            type="primary"
-            size="large"
-            :disabled="!selectForm.strategy || !selectForm.market"
-            @click="startSelect"
-          >
-            <i class="el-icon-loading" v-if="loading"></i>
-            {{ loading ? '选股中...' : '开始选股' }}
-          </el-button>
-        </div>
+      <!-- 股票代码输入 -->
+      <div class="input-section">
+        <el-form :inline="true" @submit.native.prevent="startAnalysis">
+          <el-form-item label="股票代码">
+            <el-input
+              v-model="inputCode"
+              placeholder="输入代码，如 600519"
+              clearable
+              style="width: 200px;"
+              @keyup.enter.native="startAnalysis"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="loading" @click="startAnalysis">
+              开始分析
+            </el-button>
+          </el-form-item>
+        </el-form>
       </div>
 
-      <!-- 选股结果 -->
-      <div class="select-result" v-if="resultList.length > 0">
-        <h3 class="result-title">选股结果（共 {{ resultList.length }} 只）</h3>
-        <el-table
-          :data="resultList"
-          border
-          style="width: 100%;"
-          @row-click="goStockDetail"
+      <!-- 热门股票快捷选择 -->
+      <div class="hot-stocks">
+        <span class="hot-label">热门股票：</span>
+        <el-tag
+          v-for="stock in hotStocks"
+          :key="stock.code"
+          type="info"
+          effect="plain"
+          class="hot-tag"
+          @click="analyzeStock(stock)"
         >
-          <el-table-column prop="code" label="股票代码" min-width="80" />
-          <el-table-column prop="name" label="股票名称" min-width="90" />
-          <el-table-column prop="score" label="匹配分数" min-width="120">
+          {{ stock.name }}
+        </el-tag>
+      </div>
+
+      <!-- 分析结果展示 -->
+      <div class="result-section" v-if="resultList.length > 0">
+        <h3 class="result-title">分析结果（共 {{ resultList.length }} 只）</h3>
+        <el-table :data="resultList" border style="width: 100%;" @row-click="goStockDetail">
+          <el-table-column prop="code" label="股票代码" width="100" />
+          <el-table-column prop="name" label="股票名称" width="120" />
+          <el-table-column label="AI预测趋势" width="120">
             <template slot-scope="scope">
-              <div class="score-container">
-                <span class="score-text">{{ scope.row.score }}</span>
-                <div class="star-container" v-html="generateStar(scope.row.score)"></div>
-              </div>
+              <span :class="scope.row.trend === 'up' ? 'text-up' : 'text-down'">
+                {{ scope.row.trend === 'up' ? '📈 看涨' : '📉 看跌' }}
+              </span>
             </template>
           </el-table-column>
-
+          <el-table-column label="预测概率" width="140">
+            <template slot-scope="scope">
+              <el-progress
+                :percentage="scope.row.probability"
+                :color="scope.row.trend === 'up' ? '#f56c6c' : '#67c23a'"
+                :stroke-width="16"
+                :text-inside="true"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column label="涨跌幅" width="100">
+            <template slot-scope="scope">
+              <span :class="scope.row.zd >= 0 ? 'text-up' : 'text-down'">
+                {{ scope.row.zd >= 0 ? '+' : '' }}{{ (scope.row.zd * 100).toFixed(2) }}%
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="vol" label="成交量" width="120">
+            <template slot-scope="scope">
+              {{ formatVolume(scope.row.vol) }}
+            </template>
+          </el-table-column>
           <el-table-column label="操作" min-width="140">
             <template slot-scope="scope">
-              <el-button
-                type="text"
-                @click.stop="goStockDetail(scope.row)"
-                class="operate-btn"
-              >
+              <el-button type="text" @click.stop="goStockDetail(scope.row)">
                 查看详情
               </el-button>
-              <el-button
-                type="text"
-                @click.stop="handleAddOptionalStock(scope.row)"
-                class="operate-btn text-up"
-              >
+              <el-button type="text" class="text-up" @click.stop="handleAddOptionalStock(scope.row)">
                 加入自选
               </el-button>
             </template>
           </el-table-column>
         </el-table>
 
-        <div class="export-result">
-          <el-button
-            type="success"
-            icon="el-icon-download"
-            @click="exportResult"
-          >
-            导出选股结果
+        <div class="action-bar">
+          <el-button type="success" icon="el-icon-download" @click="exportResult">
+            导出分析结果
+          </el-button>
+          <el-button type="warning" icon="el-icon-delete" @click="clearResults">
+            清空结果
           </el-button>
         </div>
       </div>
 
-      <!-- 无结果提示 -->
-      <div class="no-result" v-if="!loading && resultList.length === 0 && hasSelected">
-        <el-empty description="暂无符合条件的股票，请调整选股条件重试"></el-empty>
+      <!-- 空状态 -->
+      <div class="empty-state" v-if="!loading && resultList.length === 0">
+        <el-empty description="暂无分析结果，请输入股票代码或选择热门股票">
+          <template #image>
+            <div class="empty-icon">🤖</div>
+          </template>
+        </el-empty>
+      </div>
+
+      <!-- 加载中 -->
+      <div class="loading-state" v-if="loading">
+        <i class="el-icon-loading"></i>
+        <span>AI分析中，请稍候...</span>
       </div>
     </div>
-  </el-main>
+  </div>
 </template>
 
 <script>
 import { mapActions } from 'vuex';
-import request from '../../utils/request';
-import { SelectStrategy, MarketType, MarketTypeLabel } from '../../utils/constants';
-import { generateStar } from '../../utils/tool';
+import request, { addStockPrefix } from '../../utils/request';
 import { exportExcel } from '../../utils/tool';
 
 export default {
   name: 'AISelectStock',
   data() {
     return {
-      SelectStrategy,
-      MarketType,
-      MarketTypeLabel,
-      selectForm: {
-        strategy: '',
-        count: 10,
-        market: ''
-      },
-      resultList: [],
+      inputCode: '',
       loading: false,
-      hasSelected: false
+      resultList: [],
+      // 热门股票列表（仅保留有后端数据的沪市股票）
+      hotStocks: [
+        { code: '600519', name: '贵州茅台' },
+        { code: '601318', name: '中国平安' },
+        { code: '600036', name: '招商银行' },
+        { code: '600900', name: '长江电力' },
+        { code: '601012', name: '隆基绿能' }
+      ]
     };
   },
   methods: {
     ...mapActions(['addOptionalStock', 'changeStock']),
-    generateStar,
-    // 开始选股
-    async startSelect() {
+
+    // 格式化成交量
+    formatVolume(vol) {
+      if (!vol) return '--';
+      if (vol >= 100000000) return (vol / 100000000).toFixed(2) + '亿';
+      if (vol >= 10000) return (vol / 10000).toFixed(2) + '万';
+      return vol;
+    },
+
+    // 开始分析（手动输入）
+    async startAnalysis() {
+      if (!this.inputCode.trim()) {
+        this.$message.warning('请输入股票代码');
+        return;
+      }
+      const code = this.inputCode.trim().replace(/^(sh|sz|bj)/i, '');
+      // 查找股票名称，如果是热门股票则使用已知名称
+      const hot = this.hotStocks.find(s => s.code === code);
+      const stock = { code, name: hot ? hot.name : code };
+      await this.analyzeStock(stock);
+    },
+
+    // 分析单只股票
+    async analyzeStock(stock) {
+      // 检查是否已存在
+      const exists = this.resultList.find(r => r.code === stock.code);
+      if (exists) {
+        this.$message.info(`${stock.name} 已在分析结果中`);
+        return;
+      }
+
       this.loading = true;
-      this.hasSelected = true;
       try {
-        const res = await request.aiSelectStock(this.selectForm);
-        this.resultList = res.list.map(item => ({
-          ...item,
-          score: item.score.toFixed(1)
-        }));
+        const fullCode = addStockPrefix(stock.code);
+        
+        // 并行获取 AI 分析和实时行情
+        const [aiRes, quoteRes] = await Promise.all([
+          request.getAIAnalysis(fullCode),
+          request.getStockLast(stock.code).catch(() => null)
+        ]);
+        
+        if (aiRes && aiRes.status === 'ok' && aiRes.data) {
+          const { prob, vol, zd } = aiRes.data;
+          const probability = Math.round((prob || 0.5) * 100);
+          const trend = (zd >= 0) ? 'up' : 'down';
+          
+          // 从实时行情获取价格和涨跌幅
+          let price = 0, change = 0, stockName = stock.name;
+          if (quoteRes && quoteRes.data) {
+            price = quoteRes.data.last || 0;
+            // 计算涨跌幅: (last - close) / close * 100
+            const close = quoteRes.data.close || 0;
+            change = close > 0 ? ((price - close) / close * 100).toFixed(2) : 0;
+            stockName = quoteRes.data.name || stock.name;
+          }
+          
+          this.resultList.unshift({
+            code: stock.code,
+            name: stockName,
+            trend,
+            probability,
+            vol: vol || 0,
+            zd: zd || 0,
+            price: price,
+            change: change
+          });
+          
+          this.$message.success(`${stockName} 分析完成`);
+          this.inputCode = '';
+        } else {
+          this.$message.error('获取AI分析结果失败');
+        }
       } catch (err) {
-        this.$message.error('AI选股失败，请稍后重试');
+        console.error('AI分析失败:', err);
+        this.$message.error('AI分析请求失败，请稍后重试');
       } finally {
         this.loading = false;
       }
     },
-    // 跳转个股详情
+
+    // 跳转股票详情
     goStockDetail(row) {
       this.changeStock({ code: row.code, name: row.name });
       const target = `/detail/${row.code}`;
@@ -177,97 +228,166 @@ export default {
         this.$router.push(target);
       }
     },
-    // 修复：避免方法名覆盖 mapActions 的情况
+
+    // 加入自选（去重判断 + 闪光提示）
     handleAddOptionalStock(row) {
-      // 调用 Vuex action
+      const existing = this.$store.state.optionalStocks.find(s => s.code === row.code);
+      if (existing) {
+        this.$message.warning(`${row.name} 已在自选股中`);
+        // 触发侧边栏闪光动画
+        this.$root.$emit('flash-optional-stock', row.code);
+        return;
+      }
       this.addOptionalStock({
         code: row.code,
         name: row.name,
-        price: '0.00',
-        change: '0.00'
+        price: row.price || 0,
+        change: row.change || 0
       });
       this.$message.success(`已将 ${row.name} 加入自选股`);
+      // 触发侧边栏同步自选股数据（更新实时价格）
+      this.$nextTick(() => {
+        this.$root.$emit('sync-optional-stocks');
+      });
     },
-    // 导出结果，不包含理由列
+
+    // 导出结果
     exportResult() {
       const exportData = this.resultList.map(item => ({
         股票代码: item.code,
         股票名称: item.name,
-        匹配分数: item.score
+        预测趋势: item.trend === 'up' ? '看涨' : '看跌',
+        预测概率: item.probability + '%',
+        涨跌幅: (item.zd * 100).toFixed(2) + '%',
+        成交量: item.vol
       }));
       exportExcel(exportData, 'AI智能选股结果.xlsx');
       this.$message.success('导出成功');
-    }
+    },
 
+    // 清空结果
+    clearResults() {
+      this.resultList = [];
+      this.$message.success('已清空分析结果');
+    }
   }
 };
 </script>
 
 <style scoped>
+.ai-select-stock {
+  padding: 20px;
+  background: var(--color-bg, #f5f5f5);
+  min-height: calc(100vh - 120px);
+}
+
+.card-container {
+  background: var(--color-card-bg, #fff);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
 .page-header {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--color-border, #eee);
+  padding-bottom: 16px;
 }
+
 .page-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: bold;
-  color: #333;
-  display: inline-block;
+  color: var(--color-text, #333);
+  margin: 0 0 8px 0;
 }
+
 .tag {
   font-size: 12px;
-  color: var(--color-up);
+  color: var(--color-up, #f56c6c);
   margin-left: 10px;
 }
-.select-condition {
-  margin-bottom: 30px;
+
+.page-desc {
+  font-size: 14px;
+  color: var(--color-text-secondary, #999);
+  margin: 0;
 }
-.condition-row {
+
+.input-section {
   margin-bottom: 20px;
 }
-.select-btn {
-  text-align: center;
+
+.hot-stocks {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--color-bg, #f9f9f9);
+  border-radius: 6px;
 }
-.select-btn .el-button {
-  padding: 10px 40px;
-  font-size: 16px;
+
+.hot-label {
+  font-size: 14px;
+  color: var(--color-text, #666);
+  margin-right: 12px;
 }
-.select-result {
-  margin-top: 30px;
+
+.hot-tag {
+  margin: 4px 8px 4px 0;
+  cursor: pointer;
+  transition: all 0.2s;
 }
+
+.hot-tag:hover {
+  background: var(--color-primary, #409eff);
+  color: #fff;
+  border-color: var(--color-primary, #409eff);
+}
+
+.result-section {
+  margin-top: 20px;
+}
+
 .result-title {
   font-size: 16px;
   font-weight: bold;
-  margin-bottom: 15px;
-  color: #333;
+  color: var(--color-text, #333);
+  margin-bottom: 16px;
 }
-.score-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+
+.text-up {
+  color: var(--color-up, #f56c6c);
 }
-.score-text {
-  font-size: 16px;
-  font-weight: bold;
-  color: var(--color-up);
-  margin-bottom: 4px;
+
+.text-down {
+  color: var(--color-down, #67c23a);
 }
-.star-container {
-  font-size: 12px;
-}
-.reason-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 300px;
-}
-.operate-btn {
-  padding: 0 5px;
-}
-.export-result {
-  margin-top: 15px;
+
+.action-bar {
+  margin-top: 16px;
   text-align: right;
 }
-.no-result {
-  margin-top: 50px;
+
+.action-bar .el-button {
+  margin-left: 12px;
+}
+
+.empty-state {
+  padding: 60px 0;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.loading-state {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--color-text-secondary, #999);
+}
+
+.loading-state i {
+  font-size: 24px;
+  margin-right: 8px;
 }
 </style>

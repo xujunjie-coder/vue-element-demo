@@ -3,18 +3,12 @@
     <div class="footer-container">
       <!-- 左侧版权信息 -->
       <div class="copyright">
-        <span>© 2026 同花顺多端行情分析系统 - 计算机设计大赛参赛作品</span>
-        <span class="separator">|</span>
-        <span>沪ICP备12345678号-1</span>
+        <span class="footer-item">© 2026 Financiai · 智能行情分析系统</span>
       </div>
       
       <!-- 中间联系方式 -->
       <div class="contact">
-        <el-icon class="contact-icon"><el-icon-phone /></el-icon>
-        <span>客服热线：400-123-4567</span>
-        <span class="separator">|</span>
-        <el-icon class="contact-icon"><el-icon-message /></el-icon>
-        <span>官方邮箱：support@10jqka.com.cn</span>
+        <span class="footer-item"><i class="el-icon-message"></i> 官方邮箱：lkhsss1019@gmail.com</span>
       </div>
       
       <!-- 右侧合规提示 -->
@@ -62,9 +56,11 @@ export default {
   gap: 5px;
 }
 
-.contact-icon {
+.contact i,
+.footer-item i {
   color: var(--color-up);
   font-size: 14px;
+  margin-right: 4px;
 }
 
 .compliance {
@@ -79,13 +75,27 @@ export default {
     flex-direction: column;
     align-items: center;
     text-align: center;
+    gap: 8px;
   }
   
   .separator {
     display: none;
   }
   
-  .copyright, .contact, .compliance {
+  .copyright, .contact {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+  
+  .footer-item {
+    display: block;
+    width: 100%;
+  }
+  
+  .compliance {
     width: 100%;
     justify-content: center;
   }

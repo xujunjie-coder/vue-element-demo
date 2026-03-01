@@ -25,9 +25,9 @@ Vue.config.productionTip = false;
 // 路由全局守卫 - 设置页面标题
 router.beforeEach((to, from, next) => {
   if (to.meta.title) {
-    document.title = to.meta.title + ' - 同花顺多端行情分析系统';
+    document.title = to.meta.title + ' - Financiai 同花顺行情';
   } else {
-    document.title = '同花顺多端行情分析系统';
+    document.title = 'Financiai - 基于同花顺的智能行情分析系统';
   }
   next();
 });

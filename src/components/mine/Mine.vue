@@ -252,47 +252,6 @@
         </div>
       </div>
 
-      <!-- 功能入口卡片 -->
-      <div class="function-card">
-        <h3 class="card-title">
-          <i class="el-icon-menu" style="margin-right:6px;color:var(--color-up);"></i>功能入口
-        </h3>
-        <div class="function-list">
-          <div class="function-item" @click="openOptionalDialog">
-            <i class="el-icon-star-on"></i>
-            <span>自选股管理</span>
-          </div>
-          <div class="function-item" @click="openTradeRecordDialog">
-            <i class="el-icon-s-order"></i>
-            <span>交易记录</span>
-          </div>
-          <div class="function-item" @click="openExportDialog">
-            <i class="el-icon-download"></i>
-            <span>行情导出</span>
-          </div>
-          <div class="function-item" @click="openSettingDialog">
-            <i class="el-icon-setting"></i>
-            <span>系统设置</span>
-          </div>
-          <div class="function-item" @click="$router.push('/ai/select')">
-            <i class="el-icon-cpu"></i>
-            <span>AI智能选股</span>
-          </div>
-          <div class="function-item" @click="$router.push('/trade')">
-            <i class="el-icon-s-finance"></i>
-            <span>模拟交易</span>
-          </div>
-          <div class="function-item" @click="$router.push('/quote')">
-            <i class="el-icon-s-data"></i>
-            <span>行情首页</span>
-          </div>
-          <div class="function-item" @click="openAboutDialog">
-            <i class="el-icon-info"></i>
-            <span>关于系统</span>
-          </div>
-        </div>
-      </div>
-
       <!-- 我的收藏卡片 -->
       <div class="collect-card">
         <div class="card-header">
@@ -593,7 +552,8 @@
         <div class="about-logo">
           <i class="el-icon-s-platform" style="font-size:48px;color:var(--color-up);"></i>
         </div>
-        <h2 style="text-align:center;margin:12px 0 6px;">同花顺多端行情分析系统</h2>
+        <h2 style="text-align:center;margin:12px 0 6px;">Financiai</h2>
+        <p style="text-align:center;font-size:12px;color:#999;margin:0 0 12px;">基于同花顺的智能行情分析系统</p>
         <p style="text-align:center;color:#999;font-size:13px;margin-bottom:20px;">V1.0.0 · 计算机设计大赛参赛作品</p>
         <el-divider></el-divider>
         <div class="about-desc">

@@ -62,12 +62,12 @@ const routerGuard = (to, from, next) => {
 // 全局路由钩子：设置页面标题
 Router.prototype.afterEach = (to) => {
   if (to.meta.title) {
-    document.title = to.meta.title + ' - 同花顺多端行情分析系统';
+    document.title = to.meta.title + ' - Financiai 同花顺行情';
   }
 };
 
 export default new Router({
-  mode: 'history',
+  mode: 'hash',
   suppressTransitionError: true, // 关闭重定向提示
   routes: [
     {
@@ -153,7 +153,7 @@ export default new Router({
     // 404路由
     {
       path: '*',
-      redirect: '/quote'
+      component: () => import('@/views/NotFound.vue')
     }
   ]
 });

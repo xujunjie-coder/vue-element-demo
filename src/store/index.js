@@ -83,7 +83,7 @@ export default new Vuex.Store({
   actions: {
     // 退出登录
     logout({ commit, state }) {
-      // 只清除登录凭证，不清除用户的自选股数据（按用户名隔离存储，下次登回来还在）
+      // 清除本地凭证
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('token_expiration');
@@ -92,7 +92,7 @@ export default new Vuex.Store({
       commit('setUserInfo', {});
       state.optionalStocks = [];
       Vue.prototype.$message.success('退出登录成功！');
-      window.location.href = '/login';
+      window.location.href = '/#/login';
     },
     // 初始化登录状态
     initLoginState({ commit }) {

@@ -195,7 +195,10 @@ export default {
           trigger: 'axis',
           textStyle: { fontSize: 12 },
           formatter: (params) => {
-            return `${params[0].axisValue}<br/>${params[0].seriesName}：${params[0].data.toFixed(2)} 元`;
+            // 过滤掉 data 为 null 的数据点
+            const validParams = params.filter(p => p.data != null);
+            if (validParams.length === 0) return '';
+            return validParams.map(p => `${p.seriesName}：${Number(p.data).toFixed(2)} 元`).join('<br/>');
           }
         },
         legend: {

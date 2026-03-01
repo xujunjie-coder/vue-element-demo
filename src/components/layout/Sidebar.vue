@@ -629,12 +629,15 @@ export default {
     }, 120000);
     // 5. 监听自选股闪光提示事件
     this.$root.$on('flash-optional-stock', this.handleFlashStock);
+    // 6. 监听自选股数据同步事件（其他组件添加自选后触发）
+    this.$root.$on('sync-optional-stocks', this.syncOptionalStockData);
   },
   // 组件销毁前，清除定时器（避免内存泄漏）
   beforeDestroy() {
     clearInterval(this.syncTimer);
     clearInterval(this.statTimer);
     this.$root.$off('flash-optional-stock', this.handleFlashStock);
+    this.$root.$off('sync-optional-stocks', this.syncOptionalStockData);
   },
   computed: {
     // 从Vuex获取数据时加空值兜底，核心修复点！

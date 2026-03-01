@@ -2,9 +2,9 @@
   <el-main style="padding: var(--spacing-xs, 8px); background: var(--color-bg);">
     <!-- 行情筛选栏 - 缩小内边距、间距 -->
     <div class="card-container filter-bar">
-      <el-row :gutter="10">
-        <el-col :span="6">
-          <el-select v-model="marketType" placeholder="市场类型" size="mini" @change="handleMarketChange">
+      <el-row :gutter="10" class="filter-row">
+        <el-col :xs="12" :sm="6">
+          <el-select v-model="marketType" placeholder="市场类型" size="mini" style="width: 100%;" @change="handleMarketChange">
             <el-option
               v-for="(val, key) in MarketType"
               :key="key"
@@ -13,8 +13,8 @@
             ></el-option>
           </el-select>
         </el-col>
-        <el-col :span="6">
-          <el-select v-model="sortType" placeholder="排序方式" size="mini" clearable @change="handleSortChange">
+        <el-col :xs="12" :sm="6">
+          <el-select v-model="sortType" placeholder="排序方式" size="mini" style="width: 100%;" clearable @change="handleSortChange">
             <el-option label="涨跌幅 ↑" value="zd_desc"></el-option>
             <el-option label="涨跌幅 ↓" value="zd_asc"></el-option>
             <el-option label="价格 ↑" value="last_desc"></el-option>
@@ -25,7 +25,7 @@
             <el-option label="成交额 ↓" value="amount_asc"></el-option>
           </el-select>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="18" :sm="8">
           <el-input
             v-model="searchKeyword"
             placeholder="代码/名称"
@@ -34,9 +34,9 @@
             size="mini"
           ></el-input>
         </el-col>
-        <el-col :span="4">
-          <el-button type="primary" @click="searchStock" size="mini" style="width: 100%;">
-            <i class="el-icon-search"></i> 搜索
+        <el-col :xs="6" :sm="4">
+          <el-button type="primary" @click="searchStock" size="mini" style="width: 100%;" class="search-btn">
+            <i class="el-icon-search"></i><span class="search-text"> 搜索</span>
           </el-button>
         </el-col>
       </el-row>
@@ -735,11 +735,17 @@ export default {
   .filter-bar .el-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+  }
+  .filter-bar .el-row > .el-col {
+    margin-bottom: 8px;
   }
   .filter-bar .el-select,
   .filter-bar .el-input {
     width: 100% !important;
+  }
+  /* 小屏下搜索按钮只显示图标 */
+  .search-btn .search-text {
+    display: none;
   }
   .chart-title {
     font-size: 13px;

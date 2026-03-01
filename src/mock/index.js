@@ -280,57 +280,48 @@ Mock.mock(/\/api\/stock\/search/, 'get', (options) => {
   };
 });
 // Mock登录接口（新增）
-Mock.mock('/api/user/login', 'post', (options) => {
+Mock.mock(/\/api\/user\/login/, 'post', (options) => {
   const reqData = JSON.parse(options.body);
-  // 模拟账号密码正确（admin/123456）
-  if (reqData.username === 'admin' && reqData.password === '123456') {
+  // 模拟账号密码正确（任意用户名 + 任意密码都可登录，方便调试）
+  if (reqData.username && reqData.password) {
     const userInfo = {
-      username: 'admin',
+      username: reqData.username,
       id: Mock.Random.integer(10000, 99999)
     };
     return {
-      code: 200,
-      data: {
-        token: makeToken(userInfo), // 返回简单 token
-        refresh_token: Mock.Random.string('letter', 32),
-        userInfo
-      }
+      status: 'ok',
+      access_token: makeToken(userInfo),
+      refresh_token: Mock.Random.string('letter', 32),
+      token_type: 'Bearer',
+      expiration: Date.now() + 1000 * 60 * 60
     };
   } else {
     return {
-      code: 400,
+      status: 'error',
       msg: '账号或密码错误'
     };
   }
 });
 
 // Mock注册接口（新增）
-Mock.mock('/api/user/register', 'post', (options) => {
+Mock.mock(/\/api\/user\/register/, 'post', (options) => {
   try {
     const req = JSON.parse(options.body);
     const username = (req.username || '').trim();
     const password = req.password || '';
     if (!username || !password || password.length < 6) {
-      return { code: 400, msg: '参数错误：用户名/密码不合法' };
+      return { status: 'error', msg: '参数错误：用户名/密码不合法' };
     }
     // 简单模拟：如果用户名为 'exists' 则返回已存在
     if (username === 'exists') {
-      return { code: 400, msg: '用户名已存在' };
+      return { status: 'error', msg: '用户名已存在' };
     }
-    const userInfo = {
-      username,
-      id: Mock.Random.integer(10000, 99999)
-    };
     return {
-      code: 200,
-      data: {
-        token: makeToken(userInfo),
-        refresh_token: Mock.Random.string('letter', 32),
-        userInfo
-      }
+      status: 'ok',
+      msg: '注册成功，请登录'
     };
   } catch (e) {
-    return { code: 400, msg: '请求参数解析失败' };
+    return { status: 'error', msg: '请求参数解析失败' };
   }
 });
 

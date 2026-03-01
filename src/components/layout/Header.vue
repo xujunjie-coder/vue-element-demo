@@ -3,7 +3,7 @@
     <div class="header-container">
       <!-- Logo -->
       <div class="logo">
-        <span class="logo-text">同花顺多端行情分析系统</span>
+        <img src="/logo.png" alt="Financiai" class="logo-img" />
       </div>
 
       <!-- PC端导航菜单 -->
@@ -205,15 +205,15 @@ export default {
 .logo {
   display: flex;
   align-items: center;
+  margin-left: 10px;
 }
-.logo-text {
-  font-size: 18px;
-  font-weight: bold;
-  color: var(--color-up);
+.logo-img {
+  height: 54px;
+  width: auto;
 }
 .pc-menu {
   flex: 1;
-  margin: 0 50px;
+  margin: 0 20px;
 }
 .mobile-menu-btn {
   font-size: 20px;

@@ -25,7 +25,7 @@
       <div class="stock-actions">
         <el-button type="primary" size="small" @click="addToOptional">加入自选</el-button>
         <el-button type="success" size="small" @click="toTrade">交易操作</el-button>
-        <el-button type="warning" size="small" icon="el-icon-refresh" @click="refreshDetail">刷新数据</el-button>
+        <el-button type="warning" size="small" icon="el-icon-refresh" @click="refreshDetail" class="refresh-btn"><span class="refresh-text">刷新数据</span></el-button>
       </div>
     </div>
 
@@ -52,16 +52,16 @@
     <!-- 财务数据模块 -->
     <div class="card-container finance-data hide-on-mobile">
       <h3 class="module-title">财务核心数据</h3>
-      <el-table :data="financeList" border style="width: 100%;">
-        <el-table-column prop="name" label="指标名称" width="150" />
-        <el-table-column prop="latest" label="最新值" width="120">
+      <el-table :data="financeList" border style="width: 100%;" class="finance-table">
+        <el-table-column prop="name" label="指标名称" min-width="100" />
+        <el-table-column prop="latest" label="最新值" min-width="80">
           <template slot-scope="scope">
             <span :class="scope.row.change > 0 ? 'text-up' : scope.row.change < 0 ? 'text-down' : ''">
               {{ scope.row.latest }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="指标说明" />
+        <el-table-column prop="description" label="指标说明" min-width="150" />
       </el-table>
     </div>
   </el-main>
@@ -183,6 +183,7 @@ export default {
 
         // 2. 获取K线数据和财务指标（并行，互不阻塞）
         this.fetchFinanceData(d);
+        this.fetchAIPrediction();  // 获取AI预测数据
         await this.fetchKlineData();
       } catch (err) {
         this.$message.error('股票详情加载失败');
@@ -233,6 +234,41 @@ export default {
         }
       } catch (e) {
         console.warn('获取财务指标失败:', e.message);
+      }
+    },
+
+    /**
+     * 获取AI预测数据 — 使用 /api/ai 接口
+     * 后端返回 AI 分析结果，前端适配展示
+     */
+    async fetchAIPrediction() {
+      try {
+        const res = await request.getAIAnalysis(this.currentCode);
+        const data = res.data || res;
+        
+        // 适配后端 AI 接口返回格式：{ prob, vol, zd }
+        const prob = data.prob || 0.5;  // 概率 0-1
+        const zd = data.zd || 0;        // 涨跌幅（负=跌，正=涨）
+        const trend = zd >= 0 ? 'up' : 'down';
+        const currentPrice = Number(this.stockDetail.price) || 100;
+        
+        this.stockDetail.aiPrediction = {
+          trend: trend,
+          probability: Math.round(prob * 100),  // 转为百分比
+          target_price: (currentPrice * (1 + zd * 5)).toFixed(2),  // 根据涨跌幅预估目标价
+          reason: `AI模型预测${trend === 'up' ? '上涨' : '下跌'}概率 ${Math.round(prob * 100)}%`
+        };
+        
+        console.log('AI预测数据:', this.stockDetail.aiPrediction);
+      } catch (e) {
+        console.warn('获取AI预测失败:', e.message);
+        // 失败时使用默认预测（可选）
+        this.stockDetail.aiPrediction = {
+          trend: 'up',
+          probability: 60,
+          target_price: (Number(this.stockDetail.price) * 1.03).toFixed(2),
+          reason: 'AI分析暂不可用'
+        };
       }
     },
 
@@ -665,6 +701,44 @@ export default {
   }
   .price-change {
     font-size: 16px;
+  }
+}
+
+/* ===== 响应式：超小屏 ===== */
+@media screen and (max-width: 420px) {
+  .stock-actions .refresh-btn .refresh-text {
+    display: none;
+  }
+  .stock-actions .refresh-btn {
+    min-width: auto;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: #409eff;
+    box-shadow: none;
+    font-size: 20px;
+  }
+  .stock-actions .refresh-btn i {
+    font-size: 20px;
+  }
+  .stock-actions .refresh-btn:hover,
+  .stock-actions .refresh-btn:focus {
+    background: transparent;
+    color: #66b1ff;
+  }
+}
+
+/* ===== 响应式：财务表格中小屏 ===== */
+@media screen and (max-width: 600px) {
+  .finance-table :deep(.el-table__header) th:nth-child(1),
+  .finance-table :deep(.el-table__body) td:nth-child(1) {
+    width: 85px !important;
+    min-width: 85px !important;
+  }
+  .finance-table :deep(.el-table__header) th:nth-child(2),
+  .finance-table :deep(.el-table__body) td:nth-child(2) {
+    width: 60px !important;
+    min-width: 60px !important;
   }
 }
 </style>

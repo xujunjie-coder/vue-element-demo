@@ -327,7 +327,18 @@ export default {
       }
     }),
 
-  // ---------- AI 功能（待后端实现） ----------
+  // ---------- AI 功能 ----------
+  /**
+   * AI 股票分析：GET /api/ai?code=xxx
+   * @param {string} code - 股票代码（支持带/不带前缀）
+   * 返回：后端 AI 分析结果
+   */
+  getAIAnalysis: (code) => service.get('/ai', {
+    params: { code: addStockPrefix(code) },
+    timeout: 30000  // AI 推理可能较慢
+  }),
+
+  // AI 选股（保留，待后端完善）
   aiSelectStock: (data) => aiService.post('/ai/select', data),
   aiPredict: (params) => aiService.get('/ai/predict', { params }),
 
