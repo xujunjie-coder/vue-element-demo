@@ -23,16 +23,16 @@
     <!-- 右侧边栏抽屉触发按钮（≤1460px 时显示） -->
     <div
       class="drawer-trigger right-trigger"
-      @click="rightDrawerOpen = true"
+      @click="openRightDrawer"
       v-show="showRightTrigger && !rightDrawerOpen"
     >
       <i class="el-icon-d-arrow-left"></i>
     </div>
 
-    <!-- 左侧边栏抽屉触发按钮（≤1090px 时显示） -->
+    <!-- 左侧边栏抽屉触发按钮（≤1064px 时显示） -->
     <div
       class="drawer-trigger left-trigger"
-      @click="leftDrawerOpen = true"
+      @click="openLeftDrawer"
       v-show="showLeftTrigger && !leftDrawerOpen"
     >
       <i class="el-icon-d-arrow-right"></i>
@@ -71,7 +71,7 @@ export default {
     },
     /** 是否显示左侧抽屉触发按钮 */
     showLeftTrigger() {
-      return this.hasLayout && this.windowWidth <= 1090;
+      return this.hasLayout && this.windowWidth <= 1064;
     }
   },
   mounted() {
@@ -79,7 +79,11 @@ export default {
     window.addEventListener('resize', this.handleResize);
     // 监听 Header 组件触发的侧边栏抽屉切换
     this.$root.$on('toggle-left-drawer', () => {
-      this.leftDrawerOpen = !this.leftDrawerOpen;
+      if (this.leftDrawerOpen) {
+        this.leftDrawerOpen = false;
+      } else {
+        this.openLeftDrawer();
+      }
     });
     // 初始化主题
     this.$store.dispatch('initTheme');
@@ -93,11 +97,21 @@ export default {
       this.windowWidth = window.innerWidth;
       // 屏幕变宽时自动关闭不再需要的抽屉
       if (this.windowWidth > 1460) this.rightDrawerOpen = false;
-      if (this.windowWidth > 1090) this.leftDrawerOpen = false;
+      if (this.windowWidth > 1064) this.leftDrawerOpen = false;
     },
     closeAllDrawers() {
       this.rightDrawerOpen = false;
       this.leftDrawerOpen = false;
+    },
+    /** 打开右侧抽屉，同时关闭左侧 */
+    openRightDrawer() {
+      this.leftDrawerOpen = false;
+      this.rightDrawerOpen = true;
+    },
+    /** 打开左侧抽屉，同时关闭右侧 */
+    openLeftDrawer() {
+      this.rightDrawerOpen = false;
+      this.leftDrawerOpen = true;
     }
   },
   watch: {
@@ -203,15 +217,15 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--color-border);
+  background: #e8e8e8;
+  border: 1px solid #ccc;
   cursor: pointer;
   transition: all 0.25s;
   font-size: 14px;
-  color: #999;
+  color: #555;
 }
 .drawer-trigger:hover {
-  background: #fff;
+  background: #ddd;
   color: var(--color-up);
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   width: 24px;

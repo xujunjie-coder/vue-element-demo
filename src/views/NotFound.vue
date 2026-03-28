@@ -4,10 +4,19 @@
     <div class="not-found-container">
       <div class="error-code-wrapper">
         <div class="error-code">404</div>
+        <div class="notfound-planet">
+          <svg width="90" height="90" viewBox="0 0 90 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="45" cy="45" r="35" fill="#bbdefb"/>
+            <ellipse cx="45" cy="60" rx="28" ry="8" fill="#90caf9" opacity="0.7"/>
+            <circle cx="60" cy="38" r="6" fill="#fff" opacity="0.7"/>
+            <circle cx="32" cy="55" r="3" fill="#fff" opacity="0.5"/>
+          </svg>
+        </div>
       </div>
       <p class="error-desc">
-        哎呀，你访问的页面好像去星际旅行了<br>
-        可能是地址输入错误、页面已迁移，或者它只是想独自待一会儿
+        <span class="desc-title">页面迷路了</span><br>
+        你访问的页面可能已被移除、重命名，或暂时不可用。<br>
+        <span class="desc-tip">别担心，带你回到主界面！</span>
       </p>
       <div class="btn-group">
         <router-link to="/quote" class="primary-btn">返回首页</router-link>
@@ -103,6 +112,9 @@ p {
 .error-code-wrapper {
   position: relative;
   margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .error-code {
   font-size: clamp(7rem, 20vw, 12rem);
@@ -119,13 +131,37 @@ p {
   transform: perspective(500px) rotateX(10deg);
   animation: float 4s ease-in-out infinite;
 }
+.notfound-planet {
+  margin-top: -1.5rem;
+  margin-bottom: 1.5rem;
+  animation: planet-float 6s ease-in-out infinite;
+}
+@keyframes planet-float {
+  0% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-10px) scale(1.05); }
+  100% { transform: translateY(0px) scale(1); }
+}
 .error-desc {
   font-size: clamp(1rem, 3vw, 1.5rem);
   margin-bottom: 3rem;
   max-width: 700px;
   line-height: 1.8;
-  opacity: 0.9;
+  opacity: 0.92;
   text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.desc-title {
+  font-size: 1.3em;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(33,150,243,0.18);
+}
+.desc-tip {
+  display: inline-block;
+  margin-top: 0.5em;
+  font-size: 1em;
+  color: #bbdefb;
+  font-weight: 500;
 }
 .btn-group {
   display: flex;

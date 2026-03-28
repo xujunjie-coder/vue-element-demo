@@ -99,7 +99,17 @@ export default {
     };
   },
   mounted() {
-    // 进入登录页时，只清除登录凭证（不删除用户自选股数据，按用户名隔离存储不会串号）
+    // 如果已有有效 token，直接跳转到目标页面，不清除登录状态
+    const token = localStorage.getItem('access_token');
+    const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+    if (token && userInfo.username) {
+      // 已登录，跳转到目标页或默认行情页
+      const redirect = this.$route.query.redirect || '/quote';
+      this.$router.replace(redirect);
+      return;
+    }
+    
+    // 未登录或登录信息不完整时，清理残留凭证
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_expiration');

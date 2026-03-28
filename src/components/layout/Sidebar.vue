@@ -15,11 +15,11 @@
         @select="handleNavSelect"
       >
         <el-menu-item index="nav-1">
-          <i class="el-icon-menu"></i>
+          <i class="el-icon-data-line"></i>
           <span slot="title">行情首页</span>
         </el-menu-item>
         <el-menu-item index="nav-2">
-          <i class="el-icon-s-data"></i>
+          <i class="el-icon-document"></i>
           <span slot="title">个股详情</span>
         </el-menu-item>
         <el-menu-item index="nav-3">
@@ -28,7 +28,7 @@
         </el-menu-item>
         <el-menu-item index="nav-4" :disabled="!isLogin">
           <i class="el-icon-sell"></i>
-          <span slot="title">交易模拟</span>
+          <span slot="title">模拟交易</span>
         </el-menu-item>
         <el-menu-item index="nav-5" :disabled="!isLogin">
           <i class="el-icon-user"></i>
@@ -105,7 +105,7 @@
     </div>
 
     <!-- 2. 市场分类模块（树形结构：沪深A股/板块/概念） -->
-    <div class="sidebar-module">
+    <div class="sidebar-module" style="display: none;">
       <div class="module-header">
         <h3 class="module-title">市场分类</h3>
       </div>
@@ -134,10 +134,10 @@
       <div class="tool-list tool-list-single-row">
         <el-card class="tool-card tool-card-single-row" shadow="hover" v-for="tool in filteredToolList" :key="tool.id">
           <div class="tool-item" @click="openTool(tool)">
-            <el-icon v-if="tool.id === 1" class="el-icon-s-tools" style="font-size: 18px; color: #333;"></el-icon>
+            <el-icon v-if="tool.id === 1" class="el-icon-s-tools tool-icon"></el-icon>
             <!-- 风险测评工具：换100%兼容的锁形图标（替代盾牌） -->
-            <el-icon v-else-if="tool.id === 5" class="el-icon-lock" style="font-size: 18px; color: #333;"></el-icon>
-            <el-icon v-else :class="tool.iconClass" style="font-size: 18px;"></el-icon>
+            <el-icon v-else-if="tool.id === 5" class="el-icon-lock tool-icon"></el-icon>
+            <el-icon v-else :class="tool.iconClass" class="tool-icon"></el-icon>
             <div class="tool-meta">
               <span class="tool-name">{{ tool.name }}</span>
               <span class="tool-count" v-if="tool.useCount">使用{{ tool.useCount }}次</span>
@@ -643,7 +643,8 @@ export default {
     ...mapState({
       optionalStocks: state => state.optionalStocks || [],
       currentStockCode: state => state.currentStockCode || '',
-      isLogin: state => state.isLogin || false
+      isLogin: state => state.isLogin || false,
+      marketOverviewStats: state => state.marketOverviewStats || {}
     }),
     ...mapGetters(['optionalStockCount']),
     // 抽屉导航菜单激活索引
@@ -695,6 +696,11 @@ export default {
         total: total.toFixed(2)
       };
     },
+    hasGlobalMarketStats() {
+      const s = this.marketOverviewStats || {};
+      const total = Number(s.up || 0) + Number(s.down || 0) + Number(s.flat || 0);
+      return total > 0;
+    },
     // 止损价
     stopLossPrice() {
       const buy = parseFloat(this.stopForm.buyPrice);
@@ -745,6 +751,24 @@ export default {
     }
   },
   methods: {
+        applyGlobalMarketStats(stats) {
+          const s = stats || {};
+          const up = Number(s.up) || 0;
+          const down = Number(s.down) || 0;
+          const flat = Number(s.flat) || 0;
+          const limitUp = Number(s.limitUp) || 0;
+          const limitDown = Number(s.limitDown) || 0;
+          const total = up + down + flat;
+          if (total <= 0) return false;
+
+          this.upCount = up;
+          this.downCount = down;
+          this.flatCount = flat;
+          this.limitUpCount = limitUp;
+          this.limitDownCount = limitDown;
+          return true;
+        },
+
     // 从Vuex映射操作方法
     ...mapActions(['addOptionalStock', 'deleteOptionalStock', 'changeStock','batchDeleteOptionalStock']),
     getChangeClass,
@@ -800,11 +824,11 @@ export default {
 
     // 批量添加自选股（支持多代码逗号分隔）
     openAddOptionalPrompt() {
-    this.$prompt('请输入6位股票代码（多只股票用逗号分隔）', '添加自选股', {
+    this.$prompt('请输入6位股票代码', '添加自选股', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       inputPattern: /^(\d{6},)*\d{6}$/,
-      inputErrorMessage: '请输入有效的6位股票代码（多只股票用逗号分隔）'
+      inputErrorMessage: '请输入有效的6位股票代码'
     }).then(async ({ value }) => {
       const codes = value.split(',').filter(code => code.trim());
       for (const code of codes) {
@@ -1275,17 +1299,26 @@ export default {
     // 从 /spot/sina 数据计算行情统计（复用已有缓存）
     async fetchStatistics() {
       try {
+        // 优先使用 Quote 页同步到 Vuex 的全市场估算数据
+        if (this.applyGlobalMarketStats(this.marketOverviewStats)) {
+          return;
+        }
+
         const res = await request.getSpot('ShA');
         const list = res.data || [];
         if (list.length === 0) return;
         let up = 0, down = 0, flat = 0, limitUp = 0, limitDown = 0;
         list.forEach(item => {
           const zd = Number(item.zd) || 0;
-          if (zd > 0) up++;
-          else if (zd < 0) down++;
-          else flat++;
-          if (zd >= 9.9) limitUp++;
-          if (zd <= -9.9) limitDown++;
+          if (zd > 0) {
+            up++;
+            if (zd >= 9.9) limitUp++;
+          } else if (zd < 0) {
+            down++;
+            if (zd <= -9.9) limitDown++;
+          } else {
+            flat++;
+          }
         });
         // 根据样本比例估算全市场数据（/spot/sina 最多返回 100 条）
         const total = 2300; // 沼A股约 2300 只
@@ -1297,6 +1330,15 @@ export default {
         this.limitDownCount = Math.round(limitDown * ratio);
       } catch (e) {
         console.warn('fetchStatistics error:', e);
+      }
+    }
+  },
+
+  watch: {
+    marketOverviewStats: {
+      deep: true,
+      handler(val) {
+        this.applyGlobalMarketStats(val);
       }
     }
   },
@@ -1371,7 +1413,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--color-border, #f5f5f5);
   cursor: pointer;
   transition: background-color 0.2s;
 }
@@ -1391,12 +1433,12 @@ export default {
 }
 
 .stock-item:hover {
-  background-color: #f9f9f9;
+  background-color: var(--color-menu-hover, #f9f9f9);
 }
 
 /* 选中股票高亮样式 */
 .stock-item.active {
-  background-color: #f0f8fb;
+  background-color: rgba(100, 181, 246, 0.15);
   border-left: 3px solid var(--color-up);
   padding-left: 10px;
   margin-left: -10px;
@@ -1457,10 +1499,11 @@ export default {
 
 /* 市场分类树形样式：自定义颜色 */
 .market-tree {
-  --el-tree-text-color: #333;
-  --el-tree-node-hover-bg-color: #f9f9f9;
-  --el-tree-node-active-bg-color: #f0f8fb;
-  --el-tree-node-text-hover-color: var(--color-up);
+  --el-tree-text-color: var(--color-text, #333);
+  --el-tree-node-hover-bg-color: var(--color-menu-hover, #f9f9f9);
+  --el-tree-node-active-bg-color: rgba(100, 181, 246, 0.15);
+  --el-tree-node-text-hover-color: #64b5f6;
+  background-color: transparent;
 }
 
 /* 行情统计：卡片式 3 列布局 */
@@ -1533,6 +1576,11 @@ export default {
   align-items: center;
   padding: 6px 10px; /* 上下内边距进一步缩小 */
   gap: 10px;
+}
+/* 工具图标样式 */
+.tool-icon {
+  font-size: 18px;
+  color: var(--color-text, #333);
 }
 .tool-meta {
   display: flex;

@@ -14,8 +14,8 @@
 
     <!-- 预测核心数据 -->
     <div class="prediction-core">
-      <el-row :gutter="30" class="core-row">
-        <el-col :span="8" :xs="12">
+      <el-row :gutter="16" class="core-row">
+        <el-col :span="8" :xs="8">
           <div class="core-item">
             <div class="item-label">涨跌趋势</div>
             <div class="item-value" :class="prediction.trend === 'up' ? 'text-up' : 'text-down'">
@@ -23,7 +23,7 @@
             </div>
           </div>
         </el-col>
-        <el-col :span="8" :xs="12">
+        <el-col :span="8" :xs="8">
           <div class="core-item">
             <div class="item-label">预测概率</div>
             <div class="item-value text-up">
@@ -31,7 +31,7 @@
             </div>
           </div>
         </el-col>
-        <el-col :span="8" :xs="24">
+        <el-col :span="8" :xs="8">
           <div class="core-item">
             <div class="item-label">目标价格</div>
             <div class="item-value data-text">
@@ -278,7 +278,7 @@ export default {
 .prediction-title {
   font-size: 16px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text, #333);
   margin: 0;
 }
 .toggle-btn {
@@ -291,24 +291,29 @@ export default {
 }
 .prediction-core {
   margin-bottom: 20px;
+  --core-scale: 1;
 }
 .core-row {
   margin-bottom: 10px;
 }
 .core-item {
   text-align: center;
-  padding: 10px;
-  background: #f9f9f9;
-  border-radius: 4px;
+  padding: calc(10px * var(--core-scale));
+  background: var(--color-card-bg, #f9f9f9);
+  border-radius: calc(4px * var(--core-scale));
+  border: 1px solid var(--color-border, transparent);
 }
 .item-label {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 5px;
+  font-size: calc(12px * var(--core-scale));
+  color: var(--color-text-secondary, #666);
+  margin-bottom: calc(5px * var(--core-scale));
+  white-space: nowrap;
 }
 .item-value {
-  font-size: 18px;
+  font-size: calc(18px * var(--core-scale));
   font-weight: bold;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 .text-up {
   color: #e53935;
@@ -317,11 +322,11 @@ export default {
   color: #108ee9;
 }
 .data-text {
-  color: #333;
+  color: var(--color-text, #333);
 }
 .prediction-detail {
   padding-top: 20px;
-  border-top: 1px solid #f5f5f5;
+  border-top: 1px solid var(--color-border, #f5f5f5);
 }
 .detail-item {
   margin-bottom: 15px;
@@ -330,14 +335,14 @@ export default {
 }
 .detail-label {
   font-weight: bold;
-  color: #333;
+  color: var(--color-text, #333);
   min-width: 80px;
   margin-right: 10px;
   font-size: 14px;
 }
 .detail-content {
   flex: 1;
-  color: #666;
+  color: var(--color-text-secondary, #666);
   line-height: 1.5;
   font-size: 14px;
 }
@@ -361,8 +366,40 @@ export default {
 .chart-title {
   font-size: 14px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text, #333);
   margin-bottom: 10px;
   margin-top: 0;
+}
+
+@media screen and (max-width: 1200px) {
+  .prediction-core {
+    --core-scale: 0.92;
+  }
+}
+
+@media screen and (max-width: 1024px) {
+  .prediction-core {
+    --core-scale: 0.84;
+  }
+  .core-row {
+    margin-left: -4px !important;
+    margin-right: -4px !important;
+  }
+  .core-row > [class*='el-col-'] {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .prediction-core {
+    --core-scale: 0.76;
+  }
+}
+
+@media screen and (max-width: 420px) {
+  .prediction-core {
+    --core-scale: 0.68;
+  }
 }
 </style>

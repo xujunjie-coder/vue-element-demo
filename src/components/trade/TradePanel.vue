@@ -1,10 +1,46 @@
 <template>
   <el-main style="padding: var(--spacing-base); background: var(--color-bg);">
     <div class="card-container">
-      <el-tabs v-model="activeTab" type="border-card" style="width: 100%;">
+      <!-- 资产概览看板 (新增) -->
+      <el-row :gutter="20" class="asset-dashboard" style="margin-bottom: 20px;">
+        <el-col :xs="24" :sm="24" :md="16" :span="16">
+          <div class="asset-chart-card">
+            <h3 class="chart-title">账户资产净值走势 (近30日)</h3>
+            <div ref="assetChart" class="asset-chart-canvas"></div>
+          </div>
+        </el-col>
+        <el-col :xs="24" :sm="24" :md="8" :span="8" class="asset-stats-col">
+          <div class="asset-stats-card">
+            <h3 class="chart-title">交易战绩复盘</h3>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-label">总交易次数</div>
+                <div class="stat-num">{{ orderList.length }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">胜率</div>
+                <div class="stat-num text-up">{{ hasWinRateSamples ? `${winRate}%` : '--' }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">累计盈亏</div>
+                <div class="stat-num" :class="totalProfit >= 0 ? 'text-up' : 'text-down'">{{ totalProfit }}</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">最大回撤</div>
+                <div class="stat-num text-down">{{ hasReviewSamples ? `${maxDrawdown}%` : '--' }}</div>
+              </div>
+            </div>
+            <div ref="winRateChart" class="winrate-chart-canvas"></div>
+            <div v-if="!hasReviewSamples" class="review-empty-hint">暂无有效盈亏样本，至少完成 1 笔卖出后可生成分布</div>
+          </div>
+        </el-col>
+      </el-row>
+
+      <el-tabs v-model="activeTab" type="border-card" class="trade-tabs" style="width: 100%;">
         <el-tab-pane label="买入" name="buy">
           <div class="trade-form">
             <el-form
+              class="trade-order-form"
               :model="buyForm"
               :rules="buyRules"
               ref="buyFormRef"
@@ -25,7 +61,7 @@
                   v-model="buyForm.name"
                   readonly
                   placeholder="自动填充"
-                  style="background: #f9f9f9;"
+                  class="readonly-input"
                 ></el-input>
               </el-form-item>
               <el-form-item label="买入价格" prop="price">
@@ -54,22 +90,21 @@
                 <el-input
                   :value="userBalance"
                   readonly
-                  style="background: #f9f9f9;"
+                  class="readonly-input"
                 ></el-input>
               </el-form-item>
               <el-form-item label="预估手续费">
                 <el-input
                   :value="buyFee"
                   readonly
-                  style="background: #f9f9f9;"
+                  class="readonly-input"
                 ></el-input>
               </el-form-item>
               <el-form-item label="预估总额">
                 <el-input
                   :value="buyTotal"
                   readonly
-                  :class="{'text-up': Number(buyTotal) > Number(userBalance)}"
-                  style="background: #f9f9f9;"
+                  :class="['readonly-input', {'text-up': Number(buyTotal) > Number(userBalance)}]"
                 ></el-input>
                 <div class="form-tip" v-if="Number(buyTotal) > Number(userBalance)">
                   <i class="el-icon-warning text-up"></i> 资金不足，无法委托
@@ -91,6 +126,7 @@
         <el-tab-pane label="卖出" name="sell">
           <div class="trade-form">
             <el-form
+              class="trade-order-form"
               :model="sellForm"
               :rules="sellRules"
               ref="sellFormRef"
@@ -114,14 +150,14 @@
                 <el-input
                   v-model="sellForm.name"
                   readonly
-                  style="background: #f9f9f9;"
+                  class="readonly-input"
                 ></el-input>
               </el-form-item>
               <el-form-item label="持仓数量" prop="holdAmount">
                 <el-input
                   v-model="sellForm.holdAmount"
                   readonly
-                  style="background: #f9f9f9;"
+                  class="readonly-input"
                 ></el-input>
               </el-form-item>
               <el-form-item label="卖出价格" prop="price">
@@ -151,14 +187,14 @@
                 <el-input
                   :value="sellFee"
                   readonly
-                  style="background: #f9f9f9;"
+                  class="readonly-input"
                 ></el-input>
               </el-form-item>
               <el-form-item label="预估净额">
                 <el-input
                   :value="sellTotal"
                   readonly
-                  style="background: #f9f9f9;"
+                  class="readonly-input"
                 ></el-input>
               </el-form-item>
               <el-form-item>
@@ -176,10 +212,12 @@
 
         <el-tab-pane label="持仓查询" name="hold">
           <div class="hold-list">
+            <div class="table-scroll">
             <el-table
               :data="holdList"
               border
               style="width: 100%;"
+              class="hold-table"
             >
               <el-table-column prop="code" label="代码" min-width="80" />
               <el-table-column prop="name" label="名称" min-width="80" />
@@ -214,6 +252,7 @@
                 </template>
               </el-table-column>
             </el-table>
+            </div>
 
             <div class="balance-info" v-if="userBalance">
               <div class="balance-item">
@@ -238,10 +277,12 @@
 
         <el-tab-pane label="委托单查询" name="order">
           <div class="order-list">
+            <div class="table-scroll">
             <el-table
               :data="orderList"
               border
               style="width: 100%;"
+              class="order-table"
             >
               <el-table-column prop="order_no" label="委托单号" min-width="120" />
               <el-table-column prop="code" label="代码" min-width="80" />
@@ -267,6 +308,12 @@
                 <template slot-scope="scope">
                   <el-button
                     type="text"
+                    @click="viewOrderStock(scope.row)"
+                  >
+                    详情
+                  </el-button>
+                  <el-button
+                    type="text"
                     @click="cancelOrder(scope.row)"
                     class="text-up"
                     v-if="scope.row.status === 'pending'"
@@ -276,6 +323,7 @@
                 </template>
               </el-table-column>
             </el-table>
+            </div>
 
             <div class="no-order" v-if="orderList.length === 0">
               <el-empty description="暂无委托单记录"></el-empty>
@@ -289,7 +337,8 @@
 
 <script>
 import { mapState } from 'vuex';
-import request from '../../utils/request';
+import * as echarts from 'echarts';
+import request, { stripStockPrefix } from '../../utils/request';
 import { getChangeClass, formatPrice } from '../../utils/format';
 
 export default {
@@ -298,6 +347,9 @@ export default {
     return {
       activeTab: 'buy',
       loading: false,
+      // 图表实例
+      assetChartInstance: null,
+      winRateChartInstance: null,
       // 买入表单
       buyForm: {
         code: '',
@@ -345,65 +397,413 @@ export default {
     };
   },
   computed: {
-    ...mapState(['currentStockCode', 'userInfo']),
+    ...mapState(['currentStockCode', 'userInfo', 'theme']),
     // 获取当前用户名，用于 localStorage key 隔离
     _username() {
       return (this.userInfo && this.userInfo.username) || '';
     },
     // 持仓总市值
     holdValue() {
-      let value = 0;
-      this.holdList.forEach(stock => {
-        value += Number(stock.price) * Number(stock.hold);
-      });
-      return formatPrice(value);
+      if (!this.holdList.length) return '0.00';
+      const total = this.holdList.reduce((sum, item) => {
+        const price = Number(item.price) || 0;
+        const hold = Number(item.hold) || 0;
+        return sum + price * hold;
+      }, 0);
+      return formatPrice(total);
     },
     // 账户总资产
     totalAsset() {
       return formatPrice(Number(this.userBalance) + Number(this.holdValue));
+    },
+    successfulOrders() {
+      return (this.orderList || []).filter(item => item.status === 'success');
+    },
+    successfulSellOrders() {
+      return (this.orderList || []).filter(item => item.status === 'success' && item.direction === 'sell');
+    },
+    reviewPnlSeries() {
+      // 复盘序列：
+      // 1) 卖出单使用已实现盈亏；
+      // 2) 买入单仅在仍有持仓时按浮盈估算；
+      // 3) 过滤接近 0 的噪声值，避免图表出现“几乎全是 0”的异常观感。
+      return [...this.successfulOrders]
+        .reverse()
+        .map(item => {
+          if (item.direction === 'sell') {
+            return Number(String(item.profit || 0).replace(/,/g, '')) || 0;
+          }
+
+          const hold = this.holdList.find(h => h.code === item.code);
+          if (!hold) return null;
+
+          const orderPrice = Number(String(item.price || 0).replace(/,/g, '')) || 0;
+          const amount = Number(item.amount) || 0;
+          const currentPrice = Number(String(hold.price || 0).replace(/,/g, '')) || orderPrice;
+          return (currentPrice - orderPrice) * amount;
+        })
+        .filter(v => Number.isFinite(v) && Math.abs(v) > 0.005);
+    },
+    hasReviewSamples() {
+      return this.reviewPnlSeries.length > 0;
+    },
+    hasWinRateSamples() {
+      return this.realizedProfitSeries.length > 0;
+    },
+    realizedProfitSeries() {
+      // orderList 是最新在前，回测指标需要按时间正序
+      return [...this.successfulSellOrders]
+        .reverse()
+        .map(item => Number(String(item.profit || 0).replace(/,/g, '')) || 0);
+    },
+    // 交易统计指标
+    winRate() {
+      // 胜率仅按“已卖出成交单”的已实现盈亏计算
+      const series = this.realizedProfitSeries;
+      if (!series.length) return '0.0';
+      const winCount = series.filter(v => v > 0).length;
+      return ((winCount / series.length) * 100).toFixed(1);
+    },
+    totalProfit() {
+      // 累计盈亏 = 已实现盈亏（卖出） + 当前持仓浮盈
+      const realized = this.realizedProfitSeries.reduce((sum, val) => sum + val, 0);
+      const unrealized = this.holdList.reduce((sum, item) => sum + (Number(item.profit) || 0), 0);
+      const profit = realized + unrealized;
+      return profit.toFixed(2);
+    },
+    maxDrawdown() {
+      // 基于复盘序列（含买入浮盈估算 + 卖出已实现）估算最大回撤
+      const initialCapital = 1000000;
+      let equity = initialCapital;
+      let peak = initialCapital;
+      let maxDd = 0;
+      this.reviewPnlSeries.forEach(pnl => {
+        equity += pnl;
+        if (equity > peak) peak = equity;
+        const dd = peak > 0 ? ((peak - equity) / peak) * 100 : 0;
+        if (dd > maxDd) maxDd = dd;
+      });
+      return maxDd.toFixed(2);
+    }
+  },
+  watch: {
+    _username() {
+      this.loadUserTradingData();
+    },
+    orderList: {
+      handler() {
+        this.$nextTick(() => {
+          this.initAssetChart();
+          this.initWinRateChart();
+        });
+      },
+      deep: true
+    },
+    holdList: {
+      handler() {
+        this.$nextTick(() => {
+          this.initAssetChart();
+        });
+      },
+      deep: true
+    },
+    userBalance() {
+      this.$nextTick(() => {
+        this.initAssetChart();
+      });
+    },
+    theme() {
+      // 切换主题时重新初始化图表
+      this.$nextTick(() => {
+        if (this.assetChartInstance && !this.assetChartInstance.isDisposed()) {
+          this.assetChartInstance.dispose();
+        }
+        if (this.winRateChartInstance && !this.winRateChartInstance.isDisposed()) {
+          this.winRateChartInstance.dispose();
+        }
+        this.assetChartInstance = null;
+        this.winRateChartInstance = null;
+        this.initAssetChart();
+        this.initWinRateChart();
+      });
     }
   },
   mounted() {
-    // ====== 前端模拟交易系统（按用户隔离，全部使用 localStorage） ======
-    const u = this._username;
-    const balanceKey = u ? `sim_balance_${u}` : 'sim_balance';
-    const holdKey = u ? `sim_hold_list_${u}` : 'sim_hold_list';
-    const orderKey = u ? `sim_order_list_${u}` : 'sim_order_list';
+    // 初始化图表
+    this.$nextTick(() => {
+      this.initAssetChart();
+      this.initWinRateChart();
+    });
 
-    // 初始化模拟资金（首次登录给 100 万）
-    if (!localStorage.getItem(balanceKey)) {
-      localStorage.setItem(balanceKey, '1000000');
-    }
-    this.userBalance = formatPrice(Number(localStorage.getItem(balanceKey)) || 1000000);
+    // 监听窗口调整
+    window.addEventListener('resize', this.handleResize);
 
-    // 从 localStorage 读取持仓和委托单
-    try {
-      const savedHold = JSON.parse(localStorage.getItem(holdKey) || '[]');
-      this.holdList = savedHold;
-    } catch (e) { this.holdList = []; }
-    try {
-      const savedOrders = JSON.parse(localStorage.getItem(orderKey) || '[]');
-      this.orderList = savedOrders;
-    } catch (e) { this.orderList = []; }
-
-    // 更新持仓的实时价格（并行查询，不阻塞）
-    this.refreshHoldPrices();
+    this.loadUserTradingData();
 
     // 如果从其他页面带了股票代码过来，自动填写
     if (this.$route.query.code) {
-      this.buyForm.code = this.$route.query.code;
+      const routeCode = stripStockPrefix(this.$route.query.code);
+      this.buyForm.code = routeCode;
       this.buyForm.name = this.$route.query.name || '';
       if (this.$route.query.price) {
-        this.buyForm.price = this.$route.query.price;
+        this.buyForm.price = formatPrice(this.$route.query.price);
       }
-      // 如果路由已带了名称，无需再请求后端；否则从行情缓存补全
-      if (!this.buyForm.name) {
+
+      // 无论是否带名称，都主动请求一次实时数据，确保名称和价格都自动填充
+      if (routeCode && routeCode.length === 6) {
+        this.getStockName('buy');
+      } else {
         this.getStockNameFromCache('buy');
       }
     }
   },
+  beforeDestroy() {
+    window.removeEventListener('resize', this.handleResize);
+    if (this.assetChartInstance && !this.assetChartInstance.isDisposed()) {
+      this.assetChartInstance.dispose();
+    }
+    if (this.winRateChartInstance && !this.winRateChartInstance.isDisposed()) {
+      this.winRateChartInstance.dispose();
+    }
+    this.assetChartInstance = null;
+    this.winRateChartInstance = null;
+  },
   methods: {
     getChangeClass,
+
+    isChartAlive(instance) {
+      return !!(instance && !(typeof instance.isDisposed === 'function' && instance.isDisposed()));
+    },
+
+    migrateLegacyTradingData(username) {
+      // 为避免新账号继承历史账号数据，关闭 legacy(sim_*) 自动迁移。
+      void username;
+    },
+
+    loadUserTradingData() {
+      const u = this._username;
+      if (!u) {
+        this.userBalance = formatPrice(1000000);
+        this.holdList = [];
+        this.orderList = [];
+        return;
+      }
+
+      const balanceKey = `sim_balance_${u}`;
+      const holdKey = `sim_hold_list_${u}`;
+      const orderKey = `sim_order_list_${u}`;
+
+      if (!localStorage.getItem(balanceKey)) {
+        localStorage.setItem(balanceKey, '1000000');
+      }
+      this.userBalance = formatPrice(Number(localStorage.getItem(balanceKey)) || 1000000);
+
+      try {
+        const savedHold = JSON.parse(localStorage.getItem(holdKey) || '[]');
+        this.holdList = Array.isArray(savedHold) ? savedHold : [];
+      } catch (e) { this.holdList = []; }
+      try {
+        const savedOrders = JSON.parse(localStorage.getItem(orderKey) || '[]');
+        this.orderList = Array.isArray(savedOrders) ? savedOrders : [];
+      } catch (e) { this.orderList = []; }
+
+      this.refreshHoldPrices();
+      this.$nextTick(() => {
+        this.initWinRateChart();
+      });
+    },
+
+    handleResize() {
+      if (this.isChartAlive(this.assetChartInstance)) this.assetChartInstance.resize();
+      if (this.isChartAlive(this.winRateChartInstance)) this.winRateChartInstance.resize();
+    },
+
+    // 初始化资产走势图
+    initAssetChart() {
+      if (!this.$refs.assetChart) return;
+      const existing = echarts.getInstanceByDom(this.$refs.assetChart);
+      if (existing) existing.dispose();
+      this.assetChartInstance = echarts.init(this.$refs.assetChart);
+      
+      const isDark = this.theme === 'dark';
+      const axisColor = isDark ? '#ccc' : '#666';
+      const splitColor = isDark ? '#333' : '#eee';
+
+      const { dates, data } = this.buildLocalAssetSeries(30);
+
+      const option = {
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'line' }
+        },
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+        xAxis: {
+          type: 'category',
+          boundaryGap: false,
+          data: dates,
+          axisLine: { lineStyle: { color: axisColor } },
+          axisLabel: { color: axisColor, fontSize: 10 }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: { lineStyle: { color: splitColor, type: 'dashed' } },
+          axisLabel: { color: axisColor, fontSize: 10 }
+        },
+        series: [{
+          name: '总资产',
+          type: 'line',
+          smooth: true,
+          symbol: 'none',
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: 'rgba(24, 144, 255, 0.3)' },
+              { offset: 1, color: 'rgba(24, 144, 255, 0.05)' }
+            ])
+          },
+          lineStyle: { width: 2, color: '#1890ff' },
+          data: data
+        }]
+      };
+      if (!this.isChartAlive(this.assetChartInstance)) return;
+      this.assetChartInstance.setOption(option);
+    },
+
+    // 基于本地真实交易数据构建近N日资产曲线（不使用随机模拟）
+    buildLocalAssetSeries(days = 30) {
+      const toNum = (v) => {
+        const n = Number(String(v == null ? 0 : v).replace(/,/g, ''));
+        return Number.isFinite(n) ? n : 0;
+      };
+      const parseOrderDate = (order) => {
+        const t = order && order.create_time ? String(order.create_time).trim() : '';
+        if (!t) return '';
+        const normalized = t.replace(/\//g, '-').replace(' ', 'T');
+        const d = new Date(normalized);
+        if (!Number.isNaN(d.getTime())) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        }
+        return t.slice(0, 10).replace(/\//g, '-');
+      };
+
+      const dayKeys = [];
+      const dayLabels = [];
+      const today = new Date();
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const y = d.getFullYear();
+        const m2 = String(d.getMonth() + 1).padStart(2, '0');
+        const dd2 = String(d.getDate()).padStart(2, '0');
+        dayKeys.push(`${y}-${m2}-${dd2}`);
+        dayLabels.push(`${d.getMonth() + 1}-${d.getDate()}`);
+      }
+
+      const firstDay = dayKeys[0];
+      const pnlByDay = {};
+      let realizedBeforeWindow = 0;
+      let realizedTotal = 0;
+
+      (this.orderList || []).forEach((order) => {
+        if (!order || order.status !== 'success' || order.direction !== 'sell') return;
+        const pnl = toNum(order.profit);
+        realizedTotal += pnl;
+        const day = parseOrderDate(order);
+        if (!day) return;
+        if (day < firstDay) {
+          realizedBeforeWindow += pnl;
+        } else if (pnlByDay[day] != null) {
+          pnlByDay[day] += pnl;
+        } else {
+          pnlByDay[day] = pnl;
+        }
+      });
+
+      const cash = toNum(this.userBalance);
+      const holdValue = (this.holdList || []).reduce((sum, item) => sum + toNum(item.price) * toNum(item.hold), 0);
+      const currentTotalAsset = cash + holdValue;
+      const baseWithoutRealized = currentTotalAsset - realizedTotal;
+
+      let cum = realizedBeforeWindow;
+      const series = dayKeys.map((day) => {
+        cum += toNum(pnlByDay[day]);
+        return Number((baseWithoutRealized + cum).toFixed(2));
+      });
+
+      return {
+        dates: dayLabels,
+        data: series
+      };
+    },
+
+    // 初始化盈亏分布柱状图
+    initWinRateChart() {
+      if (!this.$refs.winRateChart) return;
+      const existing = echarts.getInstanceByDom(this.$refs.winRateChart);
+      if (existing) existing.dispose();
+      this.winRateChartInstance = echarts.init(this.$refs.winRateChart);
+      
+      const isDark = this.theme === 'dark';
+      const textColor = isDark ? '#ccc' : '#666';
+      const profitSeries = this.reviewPnlSeries;
+      const lastTen = profitSeries.slice(-10);
+      const hasData = lastTen.length > 0;
+      const xLabels = lastTen.length
+        ? lastTen.map((_, idx) => String(idx + 1))
+        : ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+      const yData = (lastTen.length ? lastTen : new Array(10).fill(0))
+        .map(v => Number((Number(v) || 0).toFixed(2)));
+
+      const option = {
+        title: { text: '近10笔盈亏分布', left: 'center', textStyle: { fontSize: 12, color: textColor } },
+        tooltip: hasData
+          ? {
+            trigger: 'item',
+            formatter: (params) => {
+              const val = Number(params.value) || 0;
+              return `${params.marker}${params.name}：${val.toFixed(2)}`;
+            }
+          }
+          : { show: false },
+        grid: { left: '2%', right: '2%', bottom: '5%', top: '25%', containLabel: true },
+        xAxis: { 
+          type: 'category', 
+          data: xLabels,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: { color: textColor }
+        },
+        yAxis: { show: false },
+        series: [{
+          type: 'bar',
+          data: yData,
+          itemStyle: {
+            color: hasData
+              ? (params) => (params.value >= 0 ? '#e53935' : '#2f9b56')
+              : '#d9dde5',
+            borderRadius: 2
+          },
+          label: { show: false }
+        }],
+        graphic: !hasData
+          ? {
+            type: 'text',
+            left: 'center',
+            top: '56%',
+            style: {
+              text: '暂无可统计盈亏数据',
+              fill: textColor,
+              opacity: 0.72,
+              fontSize: 12
+            }
+          }
+          : undefined
+      };
+      if (!this.isChartAlive(this.winRateChartInstance)) return;
+      this.winRateChartInstance.setOption(option);
+    },
 
     // ====== 持仓实时价格刷新（调用真实行情接口） ======
     async refreshHoldPrices() {
@@ -435,7 +835,7 @@ export default {
     // ====== localStorage 持久化（按用户隔离） ======
     _userKey(base) {
       const u = this._username;
-      return u ? `${base}_${u}` : base;
+      return u ? `${base}_${u}` : `${base}__guest__`;
     },
     _saveHoldList() {
       localStorage.setItem(this._userKey('sim_hold_list'), JSON.stringify(this.holdList));
@@ -641,8 +1041,10 @@ export default {
             this.userBalance = formatPrice(newBalance);
             this._saveBalance();
 
-            // 减少持仓
+            // 减少持仓并计算盈亏
             const old = this.holdList[existIdx];
+            const costPrice = Number(String(old.cost).replace(/,/g, '')) || 0;
+            const sellProfit = (price - costPrice) * amount; // 卖出盈亏
             const remainHold = Number(old.hold) - amount;
             if (remainHold <= 0) {
               this.holdList.splice(existIdx, 1);
@@ -650,6 +1052,8 @@ export default {
               this.$set(this.holdList, existIdx, { ...old, hold: remainHold });
             }
             this._saveHoldList();
+            // 保存本次卖出盈亏，供后续使用
+            this._lastSellProfit = sellProfit;
           }
 
           // 生成委托单号
@@ -657,8 +1061,8 @@ export default {
           const orderNo = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
           const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
-          // 添加委托单记录
-          this.orderList.unshift({
+          // 添加委托单记录（卖出时记录盈亏）
+          const orderRecord = {
             order_no: orderNo,
             code: form.code,
             name: form.name,
@@ -666,8 +1070,10 @@ export default {
             price: formatPrice(price),
             amount: amount,
             status: 'success',
+            profit: type === 'sell' ? formatPrice(this._lastSellProfit || 0) : '0.00',
             create_time: timeStr
-          });
+          };
+          this.orderList.unshift(orderRecord);
           this._saveOrderList();
 
           this.$message.success(`${type === 'buy' ? '买入' : '卖出'}委托成功，委托单号：${orderNo}`);
@@ -692,6 +1098,12 @@ export default {
       this.sellForm.name = stock.name;
       this.sellForm.holdAmount = stock.hold;
       this.sellForm.price = stock.price;
+    },
+    // 查看委托对应股票详情
+    viewOrderStock(order) {
+      if (!order || !order.code) return;
+      const code = stripStockPrefix(order.code);
+      this.$router.push(`/detail/${code}`);
     },
     // 撤销委托
     cancelOrder(order) {
@@ -728,7 +1140,7 @@ export default {
 }
 .form-tip {
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-muted, #999);
   margin-top: 5px;
 }
 /* 数量输入框数字左对齐 */
@@ -744,8 +1156,9 @@ export default {
   gap: 12px 30px;
   margin-top: 20px;
   padding: 15px;
-  background: #f9f9f9;
+  background: var(--color-card-bg, #f9f9f9);
   border-radius: var(--border-radius-base);
+  border: 1px solid var(--color-border, transparent);
 }
 .balance-item {
   display: flex;
@@ -754,7 +1167,7 @@ export default {
 }
 .label {
   font-size: 14px;
-  color: #666;
+  color: var(--color-text-secondary, #666);
   margin-right: 6px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -762,7 +1175,7 @@ export default {
 .value {
   font-size: 16px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text, #333);
   white-space: nowrap;
 }
 .no-hold, .no-order {
@@ -793,5 +1206,237 @@ export default {
 }
 .text-up {
   color: var(--color-up);
+}
+
+/* 只读输入框样式 */
+::v-deep .readonly-input .el-input__inner {
+  background-color: var(--color-card-bg, #f9f9f9) !important;
+  color: var(--color-text, #333) !important;
+  border-color: var(--color-border, #dcdfe6) !important;
+  cursor: default;
+}
+/* 资产看板样式 */
+.asset-dashboard {
+  margin-bottom: 20px;
+}
+.asset-chart-card, .asset-stats-card {
+  background: var(--color-card-bg);
+  border-radius: 8px;
+  padding: 16px;
+  height: 340px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+}
+.asset-chart-canvas {
+  width: 100%;
+  height: 280px;
+}
+.winrate-chart-canvas {
+  width: 100%;
+  height: 160px;
+  margin-top: 10px;
+}
+.review-empty-hint {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: #909399;
+}
+.chart-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333; /* Darker color for light mode */
+  margin-bottom: 15px;
+  text-align: center;
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px 10px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+.stat-item {
+  text-align: center;
+}
+.stat-label {
+  font-size: 12px;
+  color: #666; /* Darker color for light mode */
+  margin-bottom: 6px;
+}
+.stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: #333; /* Darker color for light mode */
+  line-height: 1.2;
+}
+.text-up { color: var(--color-up); }
+.text-down { color: var(--color-down); }
+
+/* 深色模式适配 */
+[data-theme="dark"] .chart-title {
+  color: #e6e6e6;
+}
+[data-theme="dark"] .stat-label {
+  color: #cccccc;
+}
+[data-theme="dark"] .stat-num {
+  color: #ffffff;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+::v-deep .hold-table {
+  min-width: 640px;
+}
+
+::v-deep .order-table {
+  min-width: 820px;
+}
+
+@media screen and (max-width: 1024px) {
+  .trade-form,
+  .hold-list,
+  .order-list {
+    padding: 8px;
+  }
+
+  .asset-chart-card,
+  .asset-stats-card {
+    height: auto;
+    min-height: 300px;
+    padding: 12px;
+  }
+
+  .asset-chart-canvas {
+    height: 240px;
+  }
+
+  .winrate-chart-canvas {
+    height: 150px;
+  }
+
+  .stats-grid {
+    gap: 12px 8px;
+  }
+
+  .stat-num {
+    font-size: 18px;
+  }
+
+  .asset-stats-col {
+    margin-top: 12px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .asset-stats-col {
+    margin-top: 14px;
+  }
+
+  ::v-deep .trade-tabs .el-tabs__header {
+    margin-bottom: 10px;
+  }
+
+  ::v-deep .trade-tabs .el-tabs__item {
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  ::v-deep .trade-order-form .el-form-item {
+    margin-bottom: 14px;
+  }
+
+  ::v-deep .trade-order-form .el-form-item__label {
+    width: 84px !important;
+    font-size: 13px;
+    padding-right: 8px;
+  }
+
+  ::v-deep .trade-order-form .el-form-item__content {
+    margin-left: 84px !important;
+  }
+
+  ::v-deep .trade-order-form .el-input__inner,
+  ::v-deep .trade-order-form .el-input-number__inner,
+  ::v-deep .trade-order-form .el-autocomplete,
+  ::v-deep .trade-order-form .el-select {
+    font-size: 14px;
+  }
+
+  ::v-deep .trade-order-form .el-form-item:last-child .el-button {
+    width: 100%;
+  }
+
+  .balance-info {
+    gap: 8px 14px;
+    padding: 10px;
+  }
+
+  .label {
+    font-size: 13px;
+  }
+
+  .value {
+    font-size: 15px;
+  }
+
+  .chart-title {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+
+  .asset-chart-canvas {
+    height: 210px;
+  }
+
+  .winrate-chart-canvas {
+    height: 140px;
+  }
+}
+
+@media screen and (max-width: 420px) {
+  .trade-form,
+  .hold-list,
+  .order-list {
+    padding: 6px;
+  }
+
+  ::v-deep .trade-tabs .el-tabs__item {
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  ::v-deep .trade-order-form .el-form-item__label {
+    width: 76px !important;
+    font-size: 12px;
+  }
+
+  ::v-deep .trade-order-form .el-form-item__content {
+    margin-left: 76px !important;
+  }
+
+  .form-tip {
+    font-size: 11px;
+  }
+
+  .direction-tag,
+  .status-tag {
+    padding: 1px 6px;
+    font-size: 11px;
+  }
+
+  .asset-chart-canvas {
+    height: 190px;
+  }
+
+  .winrate-chart-canvas {
+    height: 128px;
+  }
 }
 </style>

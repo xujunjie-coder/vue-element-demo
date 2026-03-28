@@ -1,5 +1,11 @@
+
+/**
+ * 全局请求工具 request.js
+ * 封装 axios，统一处理 Loading、异常提示、token 刷新等
+ * 调用建议：所有 API 调用建议 async/await + try-catch，避免异常漏掉
+ */
 import axios from 'axios';
-import { Message, Loading } from 'element-ui';
+import { Message } from 'element-ui';
 
 // ========== 辅助：股票代码加前缀 ==========
 // 后端要求格式：sh600000 / sz000001
@@ -27,9 +33,9 @@ const service = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
-// AI 接口实例
+// AI 接口实例（统一迁移至 /api）
 const aiService = axios.create({
-  baseURL: process.env.VUE_APP_AI_API_BASE_URL || '/ai-api',
+  baseURL: process.env.VUE_APP_AI_API_BASE_URL || '/api',
   timeout: 15000,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' }
@@ -44,28 +50,11 @@ const refreshInstance = axios.create({
 });
 
 // ========== Loading 控制 ==========
-let loadingInstance;
-let loadingCount = 0;
-const showLoadingIfNeeded = (config) => {
-  const wantLoading = config.headers && (config.headers['X-Show-Loading'] || config.headers['x-show-loading']);
-  const defaultLoading = (config.url.includes('/ai/') || config.url.includes('/trade/')) && config.method !== 'get';
-  if (wantLoading || defaultLoading) {
-    loadingCount += 1;
-    if (!loadingInstance) {
-      loadingInstance = Loading.service({
-        text: config.url.includes('/ai/') ? 'AI分析中...' : '处理中...',
-        lock: true
-      });
-    }
-  }
-};
-const hideLoadingIfNeeded = () => {
-  if (loadingCount > 0) loadingCount -= 1;
-  if (loadingCount === 0 && loadingInstance) {
-    loadingInstance.close();
-    loadingInstance = null;
-  }
-};
+/**
+ * 关闭 request 层全局 Loading，统一由页面组件自行控制局部 loading。
+ */
+const showLoadingIfNeeded = () => {};
+const hideLoadingIfNeeded = () => {};
 
 // ========== 刷新 token 控制 ==========
 let isRefreshing = false;
@@ -100,6 +89,9 @@ const refreshToken = async () => {
 };
 
 // ========== 请求拦截器 ==========
+/**
+ * 注册请求拦截器：自动加 token，处理 Loading
+ */
 const addRequestInterceptor = (instance) => {
   instance.interceptors.request.use(
     (config) => {
@@ -113,7 +105,7 @@ const addRequestInterceptor = (instance) => {
     },
     (error) => {
       hideLoadingIfNeeded();
-      Message.error('请求发送失败，请检查网络');
+      showErrorMsg('请求发送失败，请检查网络');
       return Promise.reject(error);
     }
   );
@@ -124,22 +116,37 @@ const addRequestInterceptor = (instance) => {
  * 后端统一返回格式：{ status: "ok"/"error", data: ... }
  * HTTP 状态码同样有意义：401=需要认证/刷新
  */
+
+/**
+ * 统一错误提示，防止重复弹窗
+ */
+let lastErrorMsg = '';
+let lastErrorTime = 0;
+function showErrorMsg(msg) {
+  const now = Date.now();
+  if (msg && (msg !== lastErrorMsg || now - lastErrorTime > 1500)) {
+    Message.error(msg);
+    lastErrorMsg = msg;
+    lastErrorTime = now;
+  }
+}
+
+/**
+ * 注册响应拦截器：统一处理业务错误、HTTP错误、token刷新
+ */
 const addResponseInterceptor = (instance) => {
   instance.interceptors.response.use(
     (response) => {
       hideLoadingIfNeeded();
       const res = response.data;
-
       // 检查业务级错误（后端通过 status 字段标识）
       if (res && res.status === 'error') {
         const errMsg = res.data || res.msg || '接口请求失败';
-        // 不弹 Message 的场景由调用方自行处理
         if (!response.config._silent) {
-          Message.error(typeof errMsg === 'string' ? errMsg : '接口请求失败');
+          showErrorMsg(typeof errMsg === 'string' ? errMsg : '接口请求失败');
         }
         return Promise.reject(res);
       }
-
       // 返回完整响应体（包括 status / data 等字段），由调用方按需取值
       return res;
     },
@@ -147,40 +154,54 @@ const addResponseInterceptor = (instance) => {
       hideLoadingIfNeeded();
       const response = error.response || {};
       const status = response.status;
+      const originalRequest = error.config;
 
-      // 401 → 尝试刷新 token 并重试
+      // 401 → 处理 Token 失效或未登录
       if (status === 401) {
-        const originalRequest = error.config;
-        // 防止刷新接口自身 401 导致死循环
+        // 场景 A：登录/注册接口本身报 401（通常是密码错误或用户不存在）
+        // 这种情况下，不执行刷新逻辑，直接抛出错误由业务组件处理
+        if (originalRequest.url && (originalRequest.url.includes('/user/login') || originalRequest.url.includes('/user/register'))) {
+          const msg = (response.data && (response.data.data || response.data.msg)) || '用户名或密码错误';
+          showErrorMsg(msg);
+          return Promise.reject(error);
+        }
+
+        // 场景 B：刷新接口本身报 401（Refresh Token 也过期了）
         if (originalRequest.url && originalRequest.url.includes('/user/refresh')) {
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           localStorage.removeItem('token_expiration');
-          Message.error('登录失效，请重新登录');
-          window.location.href = '/login';
+          showErrorMsg('登录失效，请重新登录');
+          window.location.href = '/#/login';
           return Promise.reject(error);
         }
 
+        // 场景 C：普通业务接口报 401 → 尝试无感刷新
         return new Promise((resolve, reject) => {
+          // 将当前请求挂起，等待刷新完成
           subscribeTokenRefresh((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+            // 刷新成功后，更新 Authorization 头（如果需要）并重发请求
+            if (token) originalRequest.headers.Authorization = `Bearer ${token}`;
             resolve(instance(originalRequest));
           });
+
+          // 如果没有正在进行的刷新，则发起刷新请求
           if (!isRefreshing) {
             isRefreshing = true;
             refreshToken()
               .then((newToken) => {
                 isRefreshing = false;
-                onRefreshed(newToken);
+                onRefreshed(newToken); // 广播新 token，触发所有挂起的请求重试
               })
               .catch((err) => {
                 isRefreshing = false;
                 refreshSubscribers = [];
+                // 刷新失败（Refresh Token 也过期了），清除所有凭证并跳转登录
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('refresh_token');
                 localStorage.removeItem('token_expiration');
-                Message.error('登录失效，请重新登录');
-                window.location.href = '/login';
+                showErrorMsg('登录失效，请重新登录');
+                window.location.href = '/#/login';
                 reject(err);
               });
           }
@@ -189,21 +210,56 @@ const addResponseInterceptor = (instance) => {
 
       // 其他 HTTP 错误
       if (status === 400) {
-        const msg = (response.data && (response.data.data || response.data.msg)) || '参数错误';
-        if (!error.config._silent) Message.error(typeof msg === 'string' ? msg : '参数错误');
+        const msg = (response.data && (response.data.data || response.data.msg)) || '请求参数错误';
+        // 屏蔽“缺少Cookie验证信息”等底层逻辑提示
+        if (typeof msg === 'string' && msg.includes('Cookie')) {
+          console.warn('底层的认证校验错误 (Silenced):', msg);
+          
+          // 尝试自动刷新 Token
+          return new Promise((resolve, reject) => {
+            if (!isRefreshing) {
+              isRefreshing = true;
+              refreshToken()
+                .then((newToken) => {
+                  isRefreshing = false;
+                  onRefreshed(newToken);
+                  if (newToken) originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                  resolve(instance(originalRequest));
+                })
+                .catch((err) => {
+                  isRefreshing = false;
+                  refreshSubscribers = [];
+                  localStorage.removeItem('access_token');
+                  localStorage.removeItem('refresh_token');
+                  localStorage.removeItem('token_expiration');
+                  showErrorMsg('登录失效，请重新登录');
+                  window.location.href = '/#/login';
+                  reject(err);
+                });
+            } else {
+              subscribeTokenRefresh((token) => {
+                if (token) originalRequest.headers.Authorization = `Bearer ${token}`;
+                resolve(instance(originalRequest));
+              });
+            }
+          });
+        }
+        if (!error.config._silent) showErrorMsg(typeof msg === 'string' ? msg : '请求参数错误');
       } else if (status === 403) {
-        Message.error('无操作权限');
+        showErrorMsg('无操作权限');
       } else if (status === 404) {
-        Message.error('请求资源不存在');
+        showErrorMsg('请求资源不存在');
       } else if (status === 409) {
         const msg = (response.data && (response.data.data || response.data.msg)) || '冲突';
-        if (!error.config._silent) Message.error(typeof msg === 'string' ? msg : '操作冲突');
+        if (!error.config._silent) showErrorMsg(typeof msg === 'string' ? msg : '操作冲突');
       } else if (status >= 500) {
-        Message.error('服务繁忙，请稍后重试');
+        showErrorMsg('服务繁忙，请稍后重试');
       } else if (error.code === 'ECONNABORTED') {
-        Message.error('请求超时');
+        // 静默处理超时，不再弹出提示
+        console.warn('请求超时 (Silenced)');
       } else {
-        Message.error('网络异常，请检查连接');
+        // 静默处理底层网络异常，不再弹出提示
+        console.warn('网络异常或连接已断开 (Silenced)');
       }
       return Promise.reject(error);
     }
@@ -257,15 +313,36 @@ const _getSpotDedup = (stockType) => {
 };
 
 // ========== 接口方法封装 ==========
+/**
+ * 导出 API 方法，建议 async/await + try-catch 调用
+ */
 export default {
   // ---------- 认证系统 ----------
-  // 登录：POST /user/login  { username, password }
-  // 返回：{ status, access_token, refresh_token, token_type, expiration }
-  login: (data) => service.post('/user/login', data),
+  /**
+   * 登录：POST /user/login  (application/x-www-form-urlencoded)
+   * 根据最新 Apifox 文档，登录必须使用表单格式
+   */
+  login: (data) => {
+    const params = new URLSearchParams();
+    params.append('username', data.username);
+    params.append('password', data.password);
+    return service.post('/user/login', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+  },
 
-  // 注册：POST /user/register  { username, password }
-  // 返回：{ status: "ok", msg: "注册成功" } 或 { status: "error", data: "用户名已被使用" }
-  register: (data) => service.post('/user/register', data),
+  /**
+   * 注册：POST /user/register  (application/x-www-form-urlencoded)
+   * 根据最新 Apifox 文档，注册路径为 /user/register
+   */
+  register: (data) => {
+    const params = new URLSearchParams();
+    params.append('username', data.username);
+    params.append('password', data.password);
+    return service.post('/user/register', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+  },
 
   // 刷新 token：POST /user/refresh（cookie 自动携带）
   refreshToken: () => service.post('/user/refresh', {}),
@@ -280,10 +357,10 @@ export default {
    * @param {string} code - 股票代码（可带或不带前缀，函数自动补全）
    * 返回：{ status, data: { amount, ask, bid, close, code, date, hod, last, lod, name, open, time, vol } }
    * 注意：后端返回 data 为数组 [{...}]，此处自动提取第一个元素
+   * 建议：async/await + try-catch 调用
    */
   getStockLast: (code, options = {}) => service.get('/stock_last', { params: { code: addStockPrefix(code) }, ...options })
     .then(res => {
-      // 后端返回 { data: [{...}] }，统一转为 { data: {...} }
       if (res && Array.isArray(res.data)) {
         return { ...res, data: res.data[0] || {} };
       }
@@ -291,9 +368,10 @@ export default {
     }),
 
   /**
-   * 获取实时行情列表：GET /spot?stock_type=ZhA
+   * 获取实时行情列表：GET /spot/sina?stock_type=ZhA
    * @param {string} stockType - 市场类型: ZhA/ShA/SzA/BjA/NewA/CyA/KcASpot
    * 返回：{ status, data: [{ id, code, name, last, zd, ud, vol, amount, hod, lod, open, close, ... }] }
+   * 建议：async/await + try-catch 调用
    */
   getSpot: (stockType) => _getSpotDedup(stockType),
 
@@ -316,7 +394,7 @@ export default {
    * @param {Object} params - { code, period(daily/weekly/monthly), start_date, end_date, adjust(qfq/hfq) }
    * 返回：{ status, data: [{ amount, close, code, date, hod, hsr, lod, open, ud, vol, zd, zf }] }
    */
-  getDayHistory: (params) =>
+  getDayHistory: (params, options = {}) =>
     service.get('/history/day', {
       params: {
         code: addStockPrefix(params.code),
@@ -324,7 +402,8 @@ export default {
         start_date: params.start_date,
         end_date: params.end_date,
         adjust: params.adjust || 'qfq'
-      }
+      },
+      ...options
     }),
 
   // ---------- AI 功能 ----------
@@ -338,9 +417,9 @@ export default {
     timeout: 30000  // AI 推理可能较慢
   }),
 
-  // AI 选股（保留，待后端完善）
-  aiSelectStock: (data) => aiService.post('/ai/select', data),
-  aiPredict: (params) => aiService.get('/ai/predict', { params }),
+  // AI 选股
+  aiSelectStock: (data, options = {}) => service.post('/ai/select', data, options),
+  aiPredict: (params) => service.get('/ai/predict', { params }),
 
   // ---------- 交易模拟（待后端实现） ----------
   submitTradeOrder: (data) => service.post('/trade/order', data),
@@ -376,19 +455,37 @@ export default {
   /**
    * 分页行情数据（新浪数据源）：GET /spot/sina
    * 替代已废弃的 /spot 和 /spot/list
-   * @param {Object} params - { stock_type, page, size(max 100), sort(zd/ud/vol/amount/last/name), order(asc/desc) }
+   * @param {Object} params - { stock_type, page, size(max 100), sort(amp/zd/ud/vol/amount/last/name), order(asc/desc) }
    * 返回原始分页响应：{ status, data: { list: [...], pages, total } }
    */
-  getSpotSina: (params) => service.get('/spot/sina', {
-    params: {
+  getSpotSina: (params = {}) => {
+    // 全局排序字段迁移：后端已统一使用 amp，前端历史传 zd 时在此统一转换。
+    const normalizedSort = params.sort === 'zd' ? 'amp' : params.sort;
+    const reqParams = {
       stock_type: params.stock_type || 'ShA',
       page: params.page || 1,
       size: Math.min(params.size || 50, 100),
-      ...(params.sort ? { sort: params.sort } : {}),
+      ...(normalizedSort ? { sort: normalizedSort } : {}),
       ...(params.order ? { order: params.order } : {})
-    },
-    timeout: 30000
-  }),
+    };
+
+    return service.get('/spot/sina', {
+      params: reqParams,
+      timeout: 30000,
+      _silent: !!params._silent
+    }).catch((err) => {
+      const status = err && err.response && err.response.status;
+      // 兼容策略：优先 amp，后端不支持时回退 zd
+      if (status === 400 && reqParams.sort === 'amp') {
+        return service.get('/spot/sina', {
+          params: { ...reqParams, sort: 'zd' },
+          timeout: 30000,
+          _silent: true
+        });
+      }
+      return Promise.reject(err);
+    });
+  },
 
   /**
    * 股票搜索：GET /spot/search

@@ -72,7 +72,12 @@ export default new Router({
   routes: [
     {
       path: '/',
-      redirect: '/login'
+      redirect: () => {
+        // 已登录用户直接跳转行情页，未登录跳登录页
+        const token = localStorage.getItem('access_token');
+        const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+        return (token && userInfo.username) ? '/quote' : '/login';
+      }
     },
     // 登录路由（独立页面，无布局）
     {
@@ -97,7 +102,7 @@ export default new Router({
         default: StockQuote,
         footer: Footer
       },
-      meta: { title: '沪深A股实时行情' },
+      meta: { title: '沪深A股实时行情', requiresAuth: true },
       beforeEnter: routerGuard
     },
     {
@@ -110,7 +115,7 @@ export default new Router({
         default: StockDetail,
         footer: Footer
       },
-      meta: { title: '个股详情' },
+      meta: { title: '个股详情', requiresAuth: true },
       beforeEnter: routerGuard
     },
     {
@@ -123,7 +128,7 @@ export default new Router({
         default: AISelectStock,
         footer: Footer
       },
-      meta: { title: 'AI智能选股' },
+      meta: { title: 'AI智能选股', requiresAuth: true },
       beforeEnter: routerGuard
     },
     {
@@ -137,6 +142,19 @@ export default new Router({
         footer: Footer
       },
       meta: { title: '交易模拟', requiresAuth: true },
+      beforeEnter: routerGuard
+    },
+    {
+      path: '/stats',
+      name: 'StockStats',
+      components: {
+        header: Header,
+        sidebar: Sidebar,
+        rightAside: RightAside,
+        default: StockQuote,
+        footer: Footer
+      },
+      meta: { title: '行情统计', mode: 'stats', requiresAuth: true }, // 增加 mode: 'stats' 标识
       beforeEnter: routerGuard
     },
     {

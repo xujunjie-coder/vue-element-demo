@@ -1,8 +1,9 @@
 <template>
-  <el-main style="padding: var(--spacing-base); background: var(--color-bg);">
+  <div style="padding: var(--spacing-base); background: var(--color-bg); position: relative; min-height: 100%;">
+    <div id="mine-particles" class="particles-bg" v-if="theme === 'dark'"></div>
     <div class="card-container">
       <!-- 个人信息卡片 -->
-      <div class="info-card">
+      <div class="info-card" id="guide-info-card">
         <div class="info-header">
           <el-avatar size="large" icon="el-icon-user"></el-avatar>
           <div class="info-name">
@@ -44,26 +45,41 @@
             <div class="data-label">自选股数量</div>
             <div class="data-value">{{ optionalStockCount }} 只</div>
           </div>
+          <div class="data-item">
+            <div class="data-label">风险评级</div>
+            <div class="data-value" style="color:#E6A23C; cursor: pointer;" @click="openRiskDialog">
+              {{ riskResult ? riskResult.level : '未评测' }}
+              <i class="el-icon-edit" style="font-size:12px; margin-left:4px;"></i>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- 功能入口卡片（提前到投资概览前） -->
-      <div class="function-card">
+      <div class="function-card" id="guide-function-card">
         <h3 class="card-title">
           <i class="el-icon-menu" style="margin-right:6px;color:var(--color-up);"></i>功能入口
         </h3>
         <div class="function-list">
-          <div class="function-item" @click="openOptionalDialog">
+          <div class="function-item" id="guide-risk" @click="openRiskDialog">
+            <i class="el-icon-s-check"></i>
+            <span>风险评测</span>
+          </div>
+          <div class="function-item" id="guide-optional" @click="openOptionalDialog">
             <i class="el-icon-star-on"></i>
             <span>自选股管理</span>
+          </div>
+          <div class="function-item" id="guide-trade" @click="$router.push('/trade')">
+            <i class="el-icon-s-finance"></i>
+            <span>模拟交易</span>
+          </div>
+          <div class="function-item" id="guide-export" @click="openExportDialog">
+            <i class="el-icon-download"></i>
+            <span>行情导出</span>
           </div>
           <div class="function-item" @click="openTradeRecordDialog">
             <i class="el-icon-s-order"></i>
             <span>交易记录</span>
-          </div>
-          <div class="function-item" @click="openExportDialog">
-            <i class="el-icon-download"></i>
-            <span>行情导出</span>
           </div>
           <div class="function-item" @click="openSettingDialog">
             <i class="el-icon-setting"></i>
@@ -72,10 +88,6 @@
           <div class="function-item" @click="$router.push('/ai/select')">
             <i class="el-icon-cpu"></i>
             <span>AI智能选股</span>
-          </div>
-          <div class="function-item" @click="$router.push('/trade')">
-            <i class="el-icon-s-finance"></i>
-            <span>模拟交易</span>
           </div>
           <div class="function-item" @click="$router.push('/quote')">
             <i class="el-icon-s-data"></i>
@@ -89,7 +101,7 @@
       </div>
 
       <!-- 资产概览卡片 -->
-      <div class="stats-card">
+      <div class="stats-card" id="guide-stats-card">
         <h3 class="card-title">
           <i class="el-icon-data-analysis" style="margin-right:6px;color:var(--color-up);"></i>投资概览
         </h3>
@@ -146,7 +158,7 @@
       </div>
 
       <!-- 投资成就卡片 -->
-      <div class="achievement-card">
+      <div class="achievement-card" id="guide-achievement-card">
         <h3 class="card-title">
           <i class="el-icon-trophy" style="margin-right:6px;color:#E6A23C;"></i>投资等级与成就
         </h3>
@@ -181,7 +193,7 @@
       </div>
 
       <!-- 持仓概览卡片 -->
-      <div class="hold-overview-card">
+      <div class="hold-overview-card" id="guide-hold-card">
         <div class="card-header">
           <h3 class="card-title">
             <i class="el-icon-coin" style="margin-right:6px;color:var(--color-up);"></i>持仓概览
@@ -195,8 +207,8 @@
               <span class="hold-code">{{ stripPrefix(stock.code) }}</span>
             </div>
             <div class="hold-mid">
-              <span class="hold-amount">{{ stock.amount }} 股</span>
-              <span class="hold-cost">成本 {{ formatNum(stock.cost_price) }}</span>
+              <span class="hold-amount">{{ stock.hold }} 股</span>
+              <span class="hold-cost">成本 {{ formatNum(stock.cost) }}</span>
             </div>
             <div class="hold-right">
               <div class="hold-profit" :class="getChangeClass(stock.profit || 0)">
@@ -569,10 +581,75 @@
         </div>
       </div>
     </el-dialog>
-  </el-main>
+
+    <!-- ========== 风险评测对话框 ========== -->
+    <el-dialog
+      title="风险承受能力评测"
+      :visible.sync="riskDialogVisible"
+      width="600px"
+      :close-on-click-modal="false"
+      class="mine-dialog"
+    >
+      <div v-if="!riskCompleted" class="risk-form">
+        <p class="risk-desc">请如实回答以下问题，系统将为您评估风险承受能力，作为投资参考。</p>
+        <el-form :model="riskForm" label-position="top">
+          <el-form-item label="1. 您的主要投资目的是？">
+            <el-radio-group v-model="riskForm.q1">
+              <el-radio :label="2">资产保值，不愿亏损</el-radio>
+              <el-radio :label="4">资产稳健增值</el-radio>
+              <el-radio :label="6">追求高收益，接受波动</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="2. 您有多少年的股票投资经验？">
+            <el-radio-group v-model="riskForm.q2">
+              <el-radio :label="2">无经验</el-radio>
+              <el-radio :label="4">少于1年</el-radio>
+              <el-radio :label="6">1-3年</el-radio>
+              <el-radio :label="8">3年以上</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="3. 您能接受的最大亏损幅度是？">
+            <el-radio-group v-model="riskForm.q3">
+              <el-radio :label="2">不能接受亏损</el-radio>
+              <el-radio :label="4">10%以内</el-radio>
+              <el-radio :label="6">10%-30%</el-radio>
+              <el-radio :label="8">30%以上</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="4. 当市场出现大幅下跌时，您会？">
+            <el-radio-group v-model="riskForm.q4">
+              <el-radio :label="2">恐慌全部卖出</el-radio>
+              <el-radio :label="4">减仓观望</el-radio>
+              <el-radio :label="6">持仓不动</el-radio>
+              <el-radio :label="8">逢低补仓</el-radio>
+            </el-radio-group>
+          </el-form-item>
+        </el-form>
+      </div>
+      <div v-else class="risk-result">
+        <div class="result-icon">
+          <i class="el-icon-medal-1" :style="{ color: riskResult.color }"></i>
+        </div>
+        <h3 :style="{ color: riskResult.color }">{{ riskResult.type }}投资者 ({{ riskResult.level }})</h3>
+        <p class="result-desc">{{ riskResult.desc }}</p>
+        <div class="result-score">评测得分：{{ riskResult.score }} 分</div>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <template v-if="!riskCompleted">
+          <el-button @click="riskDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitRiskAssessment" :disabled="!isRiskFormValid">提交评测</el-button>
+        </template>
+        <template v-else>
+          <el-button @click="retestRisk">重新评测</el-button>
+          <el-button type="primary" @click="riskDialogVisible = false">完成</el-button>
+        </template>
+      </div>
+    </el-dialog>
+  </div>
 </template>
 
 <script>
+import 'particles.js';
 import { mapState, mapGetters, mapActions } from 'vuex';
 import request, { stripStockPrefix } from '../../utils/request';
 import { getChangeClass, formatPrice } from '../../utils/format';
@@ -618,12 +695,27 @@ export default {
       aboutDialogVisible: false,
       holdList: [],     // 持仓列表
       allOrders: [],    // 所有交易记录
-      sessionStart: Date.now()
+      sessionStart: Date.now(),
+      isMobile: false,
+      // ---- 风险评测 ----
+      riskDialogVisible: false,
+      riskCompleted: false,
+      riskForm: {
+        q1: null,
+        q2: null,
+        q3: null,
+        q4: null
+      },
+      riskResult: null
     };
   },
   computed: {
-    ...mapState(['userInfo', 'isLogin', 'optionalStocks']),
+    ...mapState(['userInfo', 'isLogin', 'optionalStocks', 'theme']),
     ...mapGetters(['optionalStockCount']),
+    isRiskFormValid() {
+      const { q1, q2, q3, q4 } = this.riskForm;
+      return q1 && q2 && q3 && q4;
+    },
     collectDisplayList() {
       return (this.optionalStocks || []).slice(0, 6);
     },
@@ -653,14 +745,14 @@ export default {
     totalReturnRate() {
       const initBalance = 1000000;
       const balance = Number(localStorage.getItem(this._uk('sim_balance'))) || initBalance;
-      const holdValue = this.holdList.reduce((s, h) => s + (Number(h.cost_price) || 0) * (Number(h.amount) || 0), 0);
+      const holdValue = this.holdList.reduce((s, h) => s + (Number(h.cost) || 0) * (Number(h.hold) || 0), 0);
       const totalAsset = balance + holdValue;
       return ((totalAsset - initBalance) / initBalance * 100).toFixed(2);
     },
     totalProfitLoss() {
       const initBalance = 1000000;
       const balance = Number(localStorage.getItem(this._uk('sim_balance'))) || initBalance;
-      const holdValue = this.holdList.reduce((s, h) => s + (Number(h.cost_price) || 0) * (Number(h.amount) || 0), 0);
+      const holdValue = this.holdList.reduce((s, h) => s + (Number(h.cost) || 0) * (Number(h.hold) || 0), 0);
       return (balance + holdValue - initBalance).toFixed(2);
     },
     winRate() {
@@ -678,15 +770,16 @@ export default {
       let maxP = 0;
       this.allOrders.forEach(o => {
         if (o.direction === 'sell' && o.status === 'success') {
-          const amount = (Number(o.price) || 0) * (Number(o.amount) || 0);
-          if (amount > maxP) maxP = amount;
+          // 使用订单中记录的盈亏字段，而非成交金额
+          const profit = Number(String(o.profit || 0).replace(/,/g, '')) || 0;
+          if (profit > maxP) maxP = profit;
         }
       });
       return maxP.toFixed(2);
     },
     avgHoldCost() {
       if (this.holdList.length === 0) return 0;
-      const sum = this.holdList.reduce((s, h) => s + (Number(h.cost_price) || 0), 0);
+      const sum = this.holdList.reduce((s, h) => s + (Number(h.cost) || 0), 0);
       return (sum / this.holdList.length).toFixed(2);
     },
 
@@ -739,7 +832,14 @@ export default {
       const favCount = this.optionalStockCount;
       const holdLen = this.holdList.length;
       const rate = Number(this.totalReturnRate);
-      return [
+      // 读取历史解锁
+      let history = {};
+      try {
+        history = JSON.parse(localStorage.getItem(this._uk('achievement_history')) || '{}');
+      } catch (e) { history = {}; }
+
+      // 定义所有成就
+      const all = [
         { id: 1, icon: '🎯', name: '初次交易', condition: '完成第1笔交易', unlocked: count >= 1 },
         { id: 2, icon: '📊', name: '交易达人', condition: '累计10笔交易', unlocked: count >= 10 },
         { id: 3, icon: '⭐', name: '自选股达人', condition: '收藏5只以上', unlocked: favCount >= 5 },
@@ -749,6 +849,21 @@ export default {
         { id: 7, icon: '💎', name: '钻石手', condition: '收益率>20%', unlocked: rate > 20 },
         { id: 8, icon: '🌟', name: '全能选手', condition: '解锁全部成就', unlocked: count >= 100 && favCount >= 5 && holdLen >= 3 && rate > 20 }
       ];
+
+      // 检查是否有新成就解锁，写入本地
+      let changed = false;
+      all.forEach(a => {
+        if (a.unlocked && !history[a.id]) {
+          history[a.id] = true;
+          changed = true;
+        }
+      });
+      if (changed) {
+        localStorage.setItem(this._uk('achievement_history'), JSON.stringify(history));
+      }
+
+      // 返回时用历史解锁覆盖当前解锁
+      return all.map(a => ({ ...a, unlocked: !!history[a.id] }));
     },
 
     // ========== 系统信息 ==========
@@ -767,12 +882,30 @@ export default {
       return `${Math.floor(m / 60)} 小时 ${m % 60} 分钟`;
     }
   },
+  watch: {
+    theme: {
+      immediate: true,
+      handler(val) {
+        this.$nextTick(() => {
+          if (val === 'dark') {
+            this.initParticles();
+          } else {
+            this.destroyParticles();
+          }
+        });
+      }
+    }
+  },
   mounted() {
+    // 检测是否为移动端
+    this.isMobile = window.innerWidth <= 768;
+
     // 按用户加载设置
     this.refreshFrequency = Number(localStorage.getItem(this._uk('refreshFrequency'))) || 3;
     this.settingForm.refreshFrequency = this.refreshFrequency;
     this.loadLocalUserInfo();
     this.loadHoldAndOrders();
+    this.loadRiskResult();
     // 每分钟更新在线时长（按用户隔离）
     this._onlineTimer = setInterval(() => {
       const cur = Number(localStorage.getItem(this._uk('online_minutes')) || 0);
@@ -781,8 +914,60 @@ export default {
   },
   beforeDestroy() {
     if (this._onlineTimer) clearInterval(this._onlineTimer);
+    this.destroyParticles();
   },
   methods: {
+    initParticles() {
+      if (this.theme !== 'dark') return;
+      // 避免重复初始化
+      if (document.querySelector('#mine-particles canvas')) return;
+      
+      // 确保DOM已渲染
+      this.$nextTick(() => {
+        const el = document.getElementById('mine-particles');
+        if (!el) return;
+
+        window.particlesJS('mine-particles', {
+          particles: {
+            number: { value: 60, density: { enable: true, value_area: 800 } },
+            color: { value: '#ffffff' },
+            shape: { type: 'circle' },
+            opacity: { value: 0.3, random: true },
+            size: { value: 3, random: true },
+            line_linked: { enable: true, distance: 150, color: '#ffffff', opacity: 0.1, width: 1 },
+            move: { enable: true, speed: 0.8, direction: 'none', random: true, straight: false, out_mode: 'out', bounce: false }
+          },
+          interactivity: {
+            detect_on: 'canvas',
+            events: {
+              onhover: { enable: true, mode: 'grab' },
+              onclick: { enable: true, mode: 'push' },
+              resize: true
+            },
+            modes: {
+              grab: { distance: 140, line_linked: { opacity: 0.3 } },
+              push: { particles_nb: 3 }
+            }
+          },
+          retina_detect: true
+        });
+      });
+    },
+    destroyParticles() {
+      const el = document.getElementById('mine-particles');
+      if (el) {
+        // particles.js 没有标准的 destroy 方法，通常移除 canvas 即可
+        // 或者通过重新加载 DOM 来清理
+        const canvas = el.querySelector('canvas');
+        if (canvas) canvas.remove();
+        // 清理 window.pJSDom 中的对应实例（如果有）
+        if (window.pJSDom && window.pJSDom.length > 0) {
+           // 简单的清理策略，虽然不够严谨但对单页应用通常足够
+           // 更好的做法是找到对应的 pJS 实例并调用 pJS.fn.vendors.destroypJS()
+           // 但 particles.js 官方文档并未公开此 API，通常直接移除 canvas
+        }
+      }
+    },
     ...mapActions(['logout', 'deleteOptionalStock', 'batchDeleteOptionalStock']),
     getChangeClass,
     // 辅助：按用户名生成隔离的 localStorage key
@@ -835,6 +1020,58 @@ export default {
         balance: balance.toFixed(2),
         today_profit: todayProfit.toFixed(2)
       });
+    },
+
+    // ====== 风险评测 ======
+    loadRiskResult() {
+      try {
+        const saved = localStorage.getItem(this._uk('risk_result'));
+        if (saved) {
+          this.riskResult = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.warn('loadRiskResult error:', e);
+      }
+    },
+    openRiskDialog() {
+      this.riskDialogVisible = true;
+      if (this.riskResult) {
+        this.riskCompleted = true;
+      } else {
+        this.riskCompleted = false;
+        this.riskForm = { q1: null, q2: null, q3: null, q4: null };
+      }
+    },
+    retestRisk() {
+      this.riskCompleted = false;
+      this.riskForm = { q1: null, q2: null, q3: null, q4: null };
+    },
+    submitRiskAssessment() {
+      if (!this.isRiskFormValid) return;
+      
+      const { q1, q2, q3, q4 } = this.riskForm;
+      const score = q1 + q2 + q3 + q4;
+      
+      let type = '保守型', level = 'C1', color = '#909399', desc = '您的风险承受能力较低，建议主要配置低风险的理财产品，如货币基金、国债等。';
+      
+      if (score >= 26) {
+        type = '激进型'; level = 'C5'; color = '#F56C6C';
+        desc = '您的风险承受能力极强，可以接受较大的本金损失，适合配置高波动股票、期货等高风险资产。';
+      } else if (score >= 20) {
+        type = '进取型'; level = 'C4'; color = '#E6A23C';
+        desc = '您的风险承受能力较高，偏好资本增值，适合配置成长型股票、偏股型基金等。';
+      } else if (score >= 14) {
+        type = '平衡型'; level = 'C3'; color = '#409EFF';
+        desc = '您的风险承受能力中等，建议均衡配置股票和债券，在控制风险的前提下追求适度收益。';
+      } else if (score >= 10) {
+        type = '稳健型'; level = 'C2'; color = '#67C23A';
+        desc = '您的风险承受能力较低，建议以债券、保本理财为主，少量参与低波动蓝筹股。';
+      }
+      
+      this.riskResult = { score, type, level, color, desc };
+      localStorage.setItem(this._uk('risk_result'), JSON.stringify(this.riskResult));
+      this.riskCompleted = true;
+      this.$message.success('评测完成');
     },
 
     // ====== 登录/退出 ======
@@ -1021,7 +1258,7 @@ export default {
     },
     resetAllData() {
       this.$confirm(
-        '此操作将清除所有本地数据（持仓、交易记录、自选股、设置），并退出登录。确定继续吗？',
+        '此操作将清除所有本地数据（持仓、交易记录、自选股、设置、成就历史），并退出登录。确定继续吗？',
         '恢复出厂设置',
         { type: 'error', confirmButtonText: '确定清除', cancelButtonText: '取消' }
       ).then(() => {
@@ -1032,6 +1269,7 @@ export default {
         localStorage.removeItem(this._uk('refreshFrequency'));
         localStorage.removeItem(this._uk('register_date'));
         localStorage.removeItem(this._uk('online_minutes'));
+        localStorage.removeItem(this._uk('achievement_history'));
         this.$store.commit('BATCH_DELETE_OPTIONAL_STOCK',
           (this.optionalStocks || []).map(s => s.code)
         );
@@ -1051,9 +1289,26 @@ export default {
 </script>
 
 <style scoped>
+.guide-btn {
+  position: absolute;
+  right: 18px;
+  top: 12px;
+  z-index: 20;
+}
 .card-container {
   max-width: 900px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+.particles-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none; /* 关键：确保不遮挡下方交互 */
 }
 
 /* ---- 个人信息卡片 ---- */
@@ -1065,6 +1320,8 @@ export default {
   background: linear-gradient(135deg, #fef7fb 0%, #fcf1f7 100%);
   border-radius: var(--border-radius-base);
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  position: relative;
+  z-index: 10; /* 提升层级，高于背景 */
 }
 .info-header {
   display: flex;
@@ -1098,12 +1355,14 @@ export default {
 .data-text { color: var(--color-up); }
 
 /* ---- 通用卡片 ---- */
-.function-card, .collect-card, .system-card {
+.function-card, .collect-card, .system-card, .stats-card, .achievement-card, .hold-overview-card, .recent-trade-card {
   margin-bottom: 16px;
   padding: 20px;
   border-radius: var(--border-radius-base);
   background: #fff;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  position: relative;
+  z-index: 10; /* 提升层级，确保可点击 */
 }
 .card-title {
   font-size: 16px;
@@ -1289,13 +1548,7 @@ export default {
 }
 
 /* ===== 投资概览卡片 ===== */
-.stats-card {
-  margin-bottom: 16px;
-  padding: 20px;
-  border-radius: var(--border-radius-base);
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-}
+/* (已被上方通用选择器覆盖 z-index) */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -1343,13 +1596,7 @@ export default {
 .bar-info { background: #409EFF; }
 
 /* ===== 投资成就卡片 ===== */
-.achievement-card {
-  margin-bottom: 16px;
-  padding: 20px;
-  border-radius: var(--border-radius-base);
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-}
+/* (已被上方通用选择器覆盖 z-index) */
 .level-section {
   display: flex;
   align-items: center;
@@ -1428,13 +1675,7 @@ export default {
 }
 
 /* ===== 持仓概览卡片 ===== */
-.hold-overview-card {
-  margin-bottom: 16px;
-  padding: 20px;
-  border-radius: var(--border-radius-base);
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-}
+/* (已被上方通用选择器覆盖 z-index) */
 .hold-list {
   display: flex;
   flex-direction: column;
@@ -1510,13 +1751,7 @@ export default {
 }
 
 /* ===== 近期交易卡片 ===== */
-.recent-trade-card {
-  margin-bottom: 16px;
-  padding: 20px;
-  border-radius: var(--border-radius-base);
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-}
+/* (已被上方通用选择器覆盖 z-index) */
 .recent-list {
   display: flex;
   flex-direction: column;
@@ -1596,5 +1831,31 @@ export default {
 }
 .about-desc li {
   margin-bottom: 4px;
+}
+/* 风险评测 */
+.risk-form {
+  padding: 10px;
+}
+.risk-desc {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+}
+.risk-result {
+  text-align: center;
+  padding: 20px 0;
+}
+.result-icon {
+  font-size: 64px;
+  margin-bottom: 10px;
+}
+.result-desc {
+  color: #666;
+  margin: 15px 0;
+  line-height: 1.6;
+}
+.result-score {
+  font-size: 12px;
+  color: #999;
 }
 </style>

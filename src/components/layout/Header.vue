@@ -3,7 +3,7 @@
     <div class="header-container">
       <!-- Logo -->
       <div class="logo">
-        <img src="/logo.png" alt="Financiai" class="logo-img" />
+        <img :src="isDarkTheme ? '/logo2.png' : '/logo.png'" alt="Financiai" class="logo-img" />
       </div>
 
       <!-- PC端导航菜单 -->
@@ -17,22 +17,22 @@
         @select="handleMenuSelect" 
       >
         <el-menu-item index="1">
-          <i class="el-icon-menu"></i>
+          <i class="el-icon-data-line"></i>
           <span slot="title">行情首页</span>
         </el-menu-item>
         <el-menu-item index="2">
-          <i class="el-icon-s-data"></i>
+          <i class="el-icon-document"></i>
           <span slot="title">个股详情</span>
         </el-menu-item>
         <el-menu-item index="3">
           <i class="el-icon-magic-stick"></i>
           <span slot="title">AI智能选股</span>
         </el-menu-item>
-        <el-menu-item index="4" :disabled="!isLogin"> <!-- 新增：未登录时禁用交易菜单 -->
+        <el-menu-item index="4" :disabled="!isLogin">
           <i class="el-icon-sell"></i>
-          <span slot="title">交易模拟</span>
+          <span slot="title">模拟交易</span>
         </el-menu-item>
-        <el-menu-item index="5" :disabled="!isLogin"> <!-- 新增：未登录时禁用个人中心菜单 -->
+        <el-menu-item index="5" :disabled="!isLogin">
           <i class="el-icon-user"></i>
           <span slot="title">个人中心</span>
         </el-menu-item>
@@ -59,16 +59,16 @@
             <i :class="isDarkTheme ? 'el-icon-sunny' : 'el-icon-moon'"></i>
           </el-button>
         </el-tooltip>
-        <el-dropdown v-if="isLogin">
-          <span class="dropdown-link">
-            <el-avatar icon="el-icon-user" size="small"></el-avatar>
-            <span class="user-name hide-on-mobile">{{ userInfo.username || '用户名' }}</span>
-            <i class="el-icon-arrow-down el-icon--right hide-on-mobile"></i>
-          </span>
-          <el-dropdown-menu slot="dropdown">
-            <el-dropdown-item @click.native="toPage('/mine')">个人中心</el-dropdown-item>
-            <el-dropdown-item @click.native="logout">退出登录</el-dropdown-item>
-          </el-dropdown-menu>
+        <el-dropdown v-if="isLogin" trigger="click">
+            <span class="dropdown-link">
+              <el-avatar icon="el-icon-user" size="small"></el-avatar>
+              <span class="user-name hide-on-mobile">{{ userInfo.username || '用户名' }}</span>
+              <i class="el-icon-arrow-down el-icon--right hide-on-mobile"></i>
+            </span>
+            <el-dropdown-menu slot="dropdown">
+              <el-dropdown-item @click.native="toPage('/mine')">个人中心</el-dropdown-item>
+              <el-dropdown-item @click.native="logout">退出登录</el-dropdown-item>
+            </el-dropdown-menu>
         </el-dropdown>
         <el-button
           type="text"
@@ -145,7 +145,7 @@ export default {
           break;
         case '5':
           path = '/mine';
-          // 未登录时拦截个人中心菜单
+          // 未登录时拦截个人中心
           if (!this.isLogin) {
             this.$message.warning('请先登录后再操作');
             this.$router.push('/login');
@@ -230,12 +230,24 @@ export default {
   margin-left: 10px;
 }
 .logo-img {
-  height: 54px;
-  width: auto;
+  height: 48px;
+  width: 130px;
+  object-fit: contain;
+  object-position: left center;
 }
 .pc-menu {
   flex: 1;
-  margin: 0 20px;
+  margin: 0 10px;
+}
+::v-deep .el-menu--horizontal > .el-menu-item {
+  height: 60px;
+  line-height: 60px;
+  padding: 0 12px;
+  font-size: 15px;
+}
+::v-deep .el-menu--horizontal > .el-menu-item i {
+  margin-right: 4px;
+  font-size: 18px;
 }
 .mobile-menu-btn {
   font-size: 20px;

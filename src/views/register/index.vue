@@ -57,6 +57,26 @@
           </el-input>
         </el-form-item>
 
+        <el-form-item label="验证码" prop="captchaInput">
+          <div class="captcha-row">
+            <el-input
+              v-model="registerForm.captchaInput"
+              placeholder="请输入右侧验证码"
+              autocomplete="off"
+              @keyup.enter.native="handleRegister"
+            ></el-input>
+            <canvas
+              ref="captchaCanvas"
+              class="captcha-canvas"
+              width="110"
+              height="40"
+              @click="refreshCaptcha"
+              title="点击刷新验证码"
+            ></canvas>
+            <el-button type="text" class="captcha-refresh" @click="refreshCaptcha">换一张</el-button>
+          </div>
+        </el-form-item>
+
         <el-form-item>
           <div class="button-row">
             <button type="button" class="primary-btn" @click="handleRegister" :disabled="isLoading">
@@ -80,8 +100,10 @@ export default {
       registerForm: {
         username: '',
         password: '',
-        confirm: ''
+        confirm: '',
+        captchaInput: ''
       },
+      captchaCode: '',
       isLoading: false,
       // 新增：控制密码显示/隐藏的状态
       showPassword: false,
@@ -98,12 +120,23 @@ export default {
             if (value !== this.registerForm.password) return callback(new Error('两次输入密码不一致'));
             callback();
           }, trigger: 'blur' }
+        ],
+        captchaInput: [
+          { required: true, message: '请输入验证码', trigger: 'blur' },
+          { validator: (rule, value, callback) => {
+            if (!value) return callback(new Error('请输入验证码'));
+            if (String(value).trim().toUpperCase() !== String(this.captchaCode).toUpperCase()) {
+              return callback(new Error('验证码不正确'));
+            }
+            callback();
+          }, trigger: 'blur' }
         ]
       }
     };
   },
   mounted() {
     this.initParticles();
+    this.refreshCaptcha();
   },
   beforeDestroy() {
     const canvas = document.querySelector('#particles-js canvas');
@@ -112,6 +145,67 @@ export default {
     }
   },
   methods: {
+    refreshCaptcha() {
+      const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+      let code = '';
+      for (let i = 0; i < 4; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      this.captchaCode = code;
+      this.$nextTick(() => {
+        this.drawCaptcha();
+      });
+    },
+    drawCaptcha() {
+      const canvas = this.$refs.captchaCanvas;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      if (!ctx) return;
+
+      // 背景渐变
+      const bg = ctx.createLinearGradient(0, 0, w, h);
+      bg.addColorStop(0, '#f5f9ff');
+      bg.addColorStop(1, '#e8f1fb');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      // 干扰线
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(Math.random() * w, Math.random() * h);
+        ctx.lineTo(Math.random() * w, Math.random() * h);
+        ctx.strokeStyle = `rgba(${80 + Math.floor(Math.random() * 80)}, ${120 + Math.floor(Math.random() * 80)}, 255, 0.35)`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // 干扰点
+      for (let i = 0; i < 28; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * h;
+        ctx.fillStyle = `rgba(${60 + Math.floor(Math.random() * 120)}, ${60 + Math.floor(Math.random() * 120)}, ${140 + Math.floor(Math.random() * 100)}, 0.45)`;
+        ctx.fillRect(x, y, 1.4, 1.4);
+      }
+
+      // 验证码字符
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      const chars = this.captchaCode.split('');
+      chars.forEach((ch, i) => {
+        const x = 18 + i * 24;
+        const y = h / 2 + (Math.random() * 6 - 3);
+        const angle = (Math.random() * 28 - 14) * Math.PI / 180;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.font = `bold ${18 + Math.floor(Math.random() * 3)}px Arial`;
+        ctx.fillStyle = `rgb(${30 + Math.floor(Math.random() * 80)}, ${50 + Math.floor(Math.random() * 80)}, ${120 + Math.floor(Math.random() * 90)})`;
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+      });
+    },
     initParticles() {
       window.particlesJS('particles-js', {
         particles: {
@@ -151,9 +245,13 @@ export default {
             password: this.registerForm.password
           });
           this.$message.success(res.msg || '注册成功，请登录');
+          this.$refs.registerForm.resetFields();
+          this.refreshCaptcha();
           this.$router.push('/login');
         } catch (err) {
           // 响应拦截器已处理错误提示
+          this.registerForm.captchaInput = '';
+          this.refreshCaptcha();
         } finally {
           this.isLoading = false;
         }
@@ -232,6 +330,34 @@ export default {
 
 .register-form :deep(.el-input__inner:focus) {
   border-color: #64b5f6;
+}
+
+.captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.captcha-row .el-input {
+  flex: 1;
+}
+
+.captcha-canvas {
+  width: 110px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px dashed #64b5f6;
+  user-select: none;
+  cursor: pointer;
+}
+
+.captcha-refresh {
+  color: #dbeafe;
+  padding: 0;
+}
+
+.captcha-refresh:hover {
+  color: #ffffff;
 }
 
 /* 按钮并排 */
@@ -313,6 +439,13 @@ export default {
 @media (max-width: 480px) {
   .register-form {
     padding: 25px;
+  }
+  .captcha-row {
+    gap: 8px;
+  }
+  .captcha-canvas {
+    width: 86px;
+    height: 40px;
   }
   .button-row {
     gap: 10px;

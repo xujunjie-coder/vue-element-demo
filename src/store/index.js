@@ -36,8 +36,19 @@ export default new Vuex.Store({
     quoteRefreshTime: process.env.VUE_APP_QUOTE_REFRESH_TIME || 3000,
     // 自选股数组（按用户名隔离，从 localStorage 恢复）
     optionalStocks: loadOptionalStocks(savedUserInfo.username),
-    // 主题模式：dark / light
-    theme: localStorage.getItem('app_theme') || 'light'
+    // 主题模式：dark / light（默认暗色主题）
+    theme: localStorage.getItem('app_theme') || 'dark',
+    // 全局共享的行情统计（用于 Sidebar 与 Quote 同步）
+    marketOverviewStats: {
+      up: 0,
+      down: 0,
+      flat: 0,
+      amount: 0,
+      limitUp: 0,
+      limitDown: 0,
+      source: '',
+      updatedAt: 0
+    }
   },
   mutations: {
     // 设置登录状态
@@ -86,6 +97,14 @@ export default new Vuex.Store({
       state.theme = theme;
       localStorage.setItem('app_theme', theme);
       document.documentElement.setAttribute('data-theme', theme);
+    },
+    // 设置全局行情统计
+    SET_MARKET_OVERVIEW_STATS(state, stats) {
+      state.marketOverviewStats = {
+        ...state.marketOverviewStats,
+        ...stats,
+        updatedAt: Date.now()
+      };
     }
   },
   actions: {
